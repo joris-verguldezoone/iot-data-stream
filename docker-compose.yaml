@@ -1,0 +1,77 @@
+services:
+  mqtt-producer: # produit vers le broker
+    build:
+      context: .
+      dockerfile: Dockerfile-producer  
+    depends_on:
+      - mosquitto
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8089:8089" 
+
+  mqtt-consumer: # consomme le broker
+    build:
+      context: .
+      dockerfile: Dockerfile-consumer  
+    depends_on:
+      - mosquitto
+      - timescaledb
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  api: # pour le rendu final
+    build:
+      context: ./api
+      dockerfile: Dockerfile-api
+    depends_on:
+      - timescaledb
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports: 
+      - 8000:8000
+
+
+  mosquitto: # broker
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+
+  timescaledb: # postgres ext db
+      image: timescale/timescaledb:latest-pg16
+      container_name: timescaledb
+      environment:
+        POSTGRES_USER: tsuser
+        POSTGRES_PASSWORD: tspassword
+        POSTGRES_DB: tsdb
+      ports:
+        - "5432:5432"
+      volumes:
+        - ./timescaledb/data:/var/lib/postgresql/data
+
+
+  pgadmin: # ui db
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80" 
+    depends_on:
+      - timescaledb
+
+
+  # mqtt-explorer: autre UI
+  #   image: smeagolworms4/mqtt-explorer
+  #   container_name: mqtt-explorer
+  #   ports:
+  #     - "4000:4000"   # UI web MQTT Explorer
+  #   depends_on:
+  #     - mosquitto

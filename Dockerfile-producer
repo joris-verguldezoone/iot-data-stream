@@ -1,0 +1,6 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY . .
+RUN pip install --no-cache-dir locust paho-mqtt
+EXPOSE 8089
+CMD ["locust", "-f", "locust_producer.py", "--host", "mqtt://mosquitto", "--web-host", "0.0.0.0"]
