@@ -19,3 +19,5 @@ vitesse du ventillateur
 MCP
 
 websocket ? 
+
+https://dbdiagram.io/d/68c978f51ff9c616bdf484d6
