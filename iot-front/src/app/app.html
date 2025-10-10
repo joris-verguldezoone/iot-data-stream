@@ -1,0 +1,12 @@
+<div class="container">
+  <button (click)="fetchData()">📄 Afficher JSON</button>
+  <button (click)="download()">⬇️ Télécharger fichier</button>
+
+  <div class="grid">
+    @for (item of jsonData; track item.name) {
+      <div class="square {{ getTemperatureClass(item.temperature) }}">
+        {{ item.temperature }}°C
+      </div>
+    }
+  </div>
+</div>
