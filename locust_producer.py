@@ -35,7 +35,7 @@ class IoTDevice(User):
 
     @task
     def send_temperature(self):
-        temp = round(random.uniform(20.0, 30.0), 2)
+        temp = round(random.uniform(20.0, 90.0), 2)
         payload = {
             "device": self.client_id,
             "temperature": temp,
