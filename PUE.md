@@ -165,3 +165,107 @@ Conversion kW 40/1000  = 0.04
 
 
 IT per server (W) ne sert a rien, a enlever, cette valeur sera calculé a postériori
+
+
+
+
+
+// =======================
+// LOCATIONS (physiques)
+// =======================
+Table Location {
+  location_id       int [pk, increment]
+  name              varchar(100)
+  country           varchar(100)
+  city              varchar(100)
+  created_at        datetime
+}
+
+// =======================
+// CLUSTER CONFIGURATIONS (modèles)
+// =======================
+Table ClusterConfiguration {
+  config_id               int [pk, increment]
+  name                    varchar(100)      // e.g. BIG_CLUSTER_HIGH_POWER
+  cluster_size            varchar(50)       // BIG, MEDIUM, SMALL
+  masters                 int
+  workers                 int
+  consomation_master_min   int
+  consomation_master_max   int
+  consomation_worker_min   int
+  consomation_worker_max   int
+  hardware_master          varchar(255)
+  hardware_worker          varchar(255)
+  env_factor               float
+  PUE                      float
+  fan_conf_id              int [ref: > FanConfiguration.fan_conf_id]  // type de ventilateur associé par défaut
+}
+
+// =======================
+// CLUSTERS INSTANCES (déploiements concrets)
+// =======================
+Table Cluster {
+  cluster_id          int [pk, increment]
+  config_id           int [ref: > ClusterConfiguration.config_id]
+  name                varchar(100)
+  location_id         int [ref: > Location.location_id]
+  deployment_status   varchar(50)      // ACTIVE, MAINTENANCE, OFFLINE...
+  created_at          datetime
+}
+
+// =======================
+// SERVERS
+// =======================
+Table Server {
+  server_id           int [pk, increment]
+  cluster_id          int [ref: > Cluster.cluster_id]
+  role                varchar(20)      // MASTER, WORKER
+  consommation         int
+  hardware_description varchar(255)
+  status              varchar(50)      // ON, OFF, DEGRADED
+  created_at          datetime
+}
+
+// =======================
+// FAN CONFIGS (modèles)
+// =======================
+Table FanConfiguration {
+  fan_conf_id          int [pk, increment]
+  name                 varchar(100)
+  consommation_min      int
+  consommation_max      int
+  created_at           datetime
+}
+
+// =======================
+// FANS (instances)
+// =======================
+Table Fan {
+  fan_id               int [pk, increment]
+  cluster_id           int [ref: > Cluster.cluster_id]
+  fan_conf_id          int [ref: > FanConfiguration.fan_conf_id]
+  control_mode         varchar(50)      // MANUAL, AUTO
+  status               varchar(50)      // ON, OFF
+  speed_percent        int
+  created_at           datetime
+}
+
+// =======================
+// SENSORS + DATA
+// =======================
+Table Sensor {
+  sensor_id            int [pk, increment]
+  cluster_id           int [ref: > Cluster.cluster_id]
+  server_id            int [ref: > Server.server_id]
+  sensor_type          varchar(50)      // TEMPERATURE, HUMIDITY, POWER, etc.
+  unit                 varchar(10)      // °C, %, W, m³/s...
+  last_value           float
+  created_at           datetime
+}
+
+Table SensorData {
+  data_id              int [pk, increment]
+  sensor_id            int [ref: > Sensor.sensor_id]
+  timestamp            datetime
+  value                float
+}

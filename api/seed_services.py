@@ -8,7 +8,7 @@ from fan_configuration import FAN_SEED
 from cluster_configuration import BIG_CLUSTERS, MEDIUM_CLUSTERS, SMALL_CLUSTERS
 
 # DB_HOST = "timescaledb"   # Nom du service Docker
-DB_HOST = "localhost"   # Nom du service local
+DB_HOST = "timescaledb"   # Nom du service local
 
 DB_PORT = 5432
 DB_NAME = "tsdb"
@@ -17,15 +17,23 @@ DB_PASS = "tspassword"
 
 # pour la bonne pratique il faudrait utiliser un .env
 # et le répercuter dans le docker-compose.yaml
-conn = psycopg2.connect(
-    host=DB_HOST,
-    port=DB_PORT,
-    dbname=DB_NAME,
-    user=DB_USER,
-    password=DB_PASS
-)
+# conn = psycopg2.connect(
+#     host=DB_HOST,
+#     port=DB_PORT,
+#     dbname=DB_NAME,
+#     user=DB_USER,
+#     password=DB_PASS
+# )
 
-cur = conn.cursor()
+def get_connection():
+    return psycopg2.connect(
+        host="timescaledb",
+        port=5432,
+        dbname="tsdb",
+        user="tsuser",
+        password="tspassword"
+    )
+cur = get_connection() 
 
 
 class Seeder():
@@ -37,7 +45,7 @@ class Seeder():
     # refacto les def dans la classes, tout clé en main
 
 def seed_db():
-    # cur = conn.cursor()
+    # cur = get_connection() 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS cluster_location (
         location_id SERIAL PRIMARY KEY,
@@ -126,6 +134,8 @@ def seed_db():
         
 
 def seed_cluster():
+    cur = get_connection() 
+    
     total_clusters = 50
     marseille_ratio = 0.8
     paris_ratio = 0.2
@@ -152,6 +162,8 @@ def seed_cluster():
     
 
 def seed_cluster_config():
+    cur = get_connection() 
+    
     big_cluster_counter = 20 # automatiser le seeding en fonction du ratio et du nbr de cluster et de selft en class
     medium_cluster_counter = 20
     small_cluster_counter = 10
@@ -183,6 +195,8 @@ def seed_cluster_config():
     # conn.close()
 
 def seed_computer_in_clusters():
+    cur = get_connection() 
+    
     cur.execute("""
     SELECT * FROM cluster
     """)
@@ -238,8 +252,12 @@ def seed_computer_in_clusters():
 
     print(Pretty(small_clusters, indent_size=4))
     print("------------small------------")
+    
+    
 
 def seed_cluster_configuration():
+    cur = get_connection() 
+
     cur.execute("""
     CREATE TABLE IF NOT EXISTS cluster_configuration (
         cluster_id SERIAL PRIMARY KEY,
@@ -275,6 +293,7 @@ def seed_cluster_configuration():
             # il faut d'abord seed les fan
   
 def seed_fan_configuration():
+    cur = get_connection() 
 
     for fan in FAN_SEED:
         consomation = random.randrange(fan['consomation'][0], fan['consomation'][1])

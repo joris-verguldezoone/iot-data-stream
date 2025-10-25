@@ -20,9 +20,7 @@ MCP
 
 websocket ? 
 
-<<<<<<< HEAD
 https://dbdiagram.io/d/68c978f51ff9c616bdf484d6
-=======
 
 20 cluster 
 # sensor_type:
@@ -328,4 +326,3 @@ Si tu veux, je peux générer directement :
 un script seed qui crée les capteurs supplémentaires, profils de conso et PUE ; ou
 
 un module de simulation / fault injector qui applique les distributions (Weibull, drift, bursts) et produit des séries temporelles réalistes.
->>>>>>> frontend
