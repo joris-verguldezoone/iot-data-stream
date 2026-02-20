@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "es2023", 
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "outDir": "dist",
+    "rootDir": "./src",
+    "resolveJsonModule": true,
+    "lib": ["es2023"],
+    "types": ["node"],
+    "allowSyntheticDefaultImports": true, // ajout recent
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

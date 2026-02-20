@@ -1,0 +1,112 @@
+generator client {
+  provider = "prisma-client" // AU LIEU DE "prisma-client-js"
+  output   = "./generated/prisma" // Optionnel mais recommandé en v7
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model ClusterLocation {
+  location_id Int       @id @default(autoincrement()) @map("location_id")
+  name        String
+  location    String?
+  created_at  DateTime  @default(now()) @map("created_at")
+
+  clusters ClusterConfiguration[]
+
+  @@map("cluster_location")
+}
+
+model FanConfiguration {
+  fan_id      Int     @id @default(autoincrement()) @map("fan_id")
+  name        String  @unique
+  consomation Float?
+
+  clusters ClusterConfiguration[]
+
+  @@map("fan_configuration")
+}
+
+model ClusterConfiguration {
+  cluster_config_id      Int     @id @default(autoincrement()) @map("cluster_config_id")
+  name                   String  @unique
+  master                 Int
+  worker                 Int
+  consomation_per_master Float?
+  consomation_per_worker Float?
+  hardware_per_master    String?
+  hardware_per_worker    String?
+  env_factor             Float?
+  pue                    Float?
+  location_id            Int?
+  fan_id                 Int?
+
+  location ClusterLocation? @relation(fields: [location_id], references: [location_id])
+  fan      FanConfiguration? @relation(fields: [fan_id], references: [fan_id])
+
+  @@map("cluster_configuration")
+}
+
+model Cluster {
+  cluster_id Int      @id @default(autoincrement()) @map("cluster_id")
+  name       String   @unique
+  location   String?
+  created_at DateTime @default(now()) @map("created_at")
+
+  servers Server[]
+
+  @@map("cluster")
+}
+
+model Server {
+  server_id  Int      @id @default(autoincrement()) @map("server_id")
+  cluster_id Int
+  hostname   String
+  status     String   @default("ON")
+  created_at DateTime @default(now()) @map("created_at")
+
+  cluster Cluster @relation(fields: [cluster_id], references: [cluster_id])
+  sensors Sensor[]
+  fans    Fan[]
+
+  @@map("server")
+}
+
+model Sensor {
+  sensor_id   Int      @id @default(autoincrement()) @map("sensor_id")
+  server_id   Int
+  sensor_type String
+  unit        String
+  last_value  Float?
+  created_at  DateTime @default(now()) @map("created_at")
+
+  server Server     @relation(fields: [server_id], references: [server_id])
+  data   SensorData[]
+
+  @@map("sensor")
+}
+
+model Fan {
+  fan_id        Int      @id @default(autoincrement()) @map("fan_id")
+  server_id     Int
+  control_mode  String   @default("AUTO")
+  status        String   @default("OFF")
+  speed_percent Int      @default(0)
+  created_at    DateTime @default(now()) @map("created_at")
+
+  server Server @relation(fields: [server_id], references: [server_id])
+
+  @@map("fan")
+}
+
+model SensorData {
+  id        Int      @id @default(autoincrement())
+  time      DateTime @default(now())
+  sensor_id Int
+  value     Float
+
+  sensor Sensor @relation(fields: [sensor_id], references: [sensor_id])
+
+  @@map("sensor_data")
+}
