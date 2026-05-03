@@ -1,16 +1,9 @@
 #!/bin/sh
-set -e
-
+# On lance la synchro Prisma
 echo "🚀 Lancement de l'initialisation Prisma..."
+npx prisma db push --accept-data-loss
 
-# Vérifie si la DB est prête avant migration
-echo "⏳ Attente de la base de données..."
-npx prisma db push --accept-data-loss || {
-  echo "❌ Échec du push, tentative de migration..."
-  npx prisma migrate deploy || npx prisma migrate dev --name init
-}
+echo "✅ Schéma synchronisé. Exécution de la commande demandée..."
 
-echo "✅ Prisma migration terminée, démarrage du serveur..."
-
-# Lancer ton serveur Node
-exec node dist/server.js
+# Le "exec $@" est CRUCIAL : il lance la commande définie dans le docker-compose
+exec "$@"

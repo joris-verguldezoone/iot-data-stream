@@ -1,14 +1,13 @@
-import { defineConfig, env } from "prisma/config";
+import "dotenv/config";
+import process from "node:process"; // L'import magique pour l'ESM
+import { defineConfig } from "prisma/config";
 
 export default defineConfig({
-  schema: "prisma/schema.prisma",
-  migrations: {
-    path: "prisma/migrations",
-  },
-  // engine: "classic",
+  // Chemin vers ton fichier SOURCE
+  schema: "./src/prisma/schema.prisma", 
+  
   datasource: {
-    // url: env("DATABASE_URL"),
-    // url: "postgresql://tsuser:tspassword@timescaledb:5432/tsdb"
-    url: "postgresql://tsuser:tspassword@localhost:5432/tsdb"
+    // Plus de "process is not defined" ici
+    url: process.env.DATABASE_URL || "postgresql://tsuser:tspassword@localhost:5432/tsdb",
   },
 });

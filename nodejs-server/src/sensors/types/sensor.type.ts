@@ -1,0 +1,1 @@
+export type SensorType = 'cpu_temp' | 'fan_speed' | 'power_usage' | 'ambient_temp' | 'load';

@@ -1,19 +1,22 @@
 {
   "compilerOptions": {
     "target": "es2023", 
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "nodenext", 
+    "moduleResolution": "nodenext",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
     "skipLibCheck": true,
     "outDir": "dist",
-    "rootDir": "./src",
+    "rootDir": "./", // On change rootDir pour inclure la racine
     "resolveJsonModule": true,
     "lib": ["es2023"],
     "types": ["node"],
-    "allowSyntheticDefaultImports": true, // ajout recent
+    "allowSyntheticDefaultImports": true
   },
-  "include": ["src/**/*.ts"],
+  "include": [
+    "src/**/*.ts", 
+    "prisma.config.ts" // ON AJOUTE LE FICHIER ICI
+  ],
   "exclude": ["node_modules", "dist"]
 }

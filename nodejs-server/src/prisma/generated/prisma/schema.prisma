@@ -1,0 +1,176 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/prisma"
+}
+
+// ==========================================
+// LOCALISATIONS
+// ==========================================
+model ClusterLocation {
+  location_id   Int      @id @default(autoincrement()) @map("location_id")
+  name          String   @unique
+  location      String?
+  env_factor    Float    @default(1.0)
+  cluster_count Int
+  created_at    DateTime @default(now()) @map("created_at")
+
+  cluster_configurations ClusterConfiguration[]
+  clusters               Cluster[]
+
+  @@map("cluster_location")
+}
+
+// ==========================================
+// CONFIGURATIONS ET CATALOGUES
+// ==========================================
+
+// Nouveau modèle pour la scénarisation (Ticket 1)
+model LoadProfile {
+  id                    Int    @id @default(autoincrement())
+  name                  String // ex: "Standard_Web", "Deep_Learning"
+  hour                  Int // 0 à 23
+  expected_load_percent Float // ex: 0.1 (10%) à 0.8 (80%)
+  target_temp_celsius   Float // Température cible théorique
+  standard_fan_speed    String @default("MEDIUM") // Vitesse conseillée ("LOW", "MEDIUM", "HIGH")
+
+  cluster_configurations ClusterConfiguration[]
+
+  @@unique([name, hour]) // Un profil doit avoir une seule définition par heure
+  @@map("load_profile")
+}
+
+model FanConfiguration {
+  fan_id                 Int                    @id @default(autoincrement()) @map("fan_id")
+  name                   String                 @unique
+  consomation            Float?                 @map("consomation")
+  cluster_configurations ClusterConfiguration[]
+  fans                   Fan[]
+
+  @@map("fan_configuration")
+}
+
+model FanCatalog {
+  fan_catalog_id         Int                    @id @default(autoincrement()) @map("fan_catalog_id")
+  model_name             String                 @unique @map("model_name")
+  consomation            Float?                 @map("consomation")
+  cluster_configurations ClusterConfiguration[]
+  fans                   Fan[]
+
+  @@map("fan_catalog")
+}
+
+model CpuCoolerCatalog {
+  cpu_cooler_catalog_id Int                    @id @default(autoincrement()) @map("cpu_cooler_catalog_id")
+  model_name            String                 @unique @map("model_name")
+  type                  String // ex: "AIR" ou "LIQUID" 
+  thermal_capacity      Int // TDP max supporté
+  cluster_configs       ClusterConfiguration[]
+
+  @@map("cpucooler_catalog")
+}
+
+model ClusterConfiguration {
+  cluster_config_id      Int     @id @default(autoincrement()) @map("cluster_config_id")
+  name                   String  @unique
+  master                 Int
+  worker                 Int
+  consomation_per_master Float?
+  consomation_per_worker Float?
+  hardware_per_master    String?
+  hardware_per_worker    String?
+  pue                    Float?
+  location_id            Int?
+  fan_id                 Int?
+  fan_count              Int     @default(1)
+  cpu_cooler_catalog_id  Int
+  fan_catalog_id         Int
+
+  // Liaison au profil de charge (Ticket 1)
+  load_profile_id Int?         @map("load_profile_id")
+  load_profile    LoadProfile? @relation(fields: [load_profile_id], references: [id])
+
+  cooler_model CpuCoolerCatalog  @relation(fields: [cpu_cooler_catalog_id], references: [cpu_cooler_catalog_id])
+  fan_model    FanCatalog?       @relation(fields: [fan_catalog_id], references: [fan_catalog_id])
+  location     ClusterLocation?  @relation(fields: [location_id], references: [location_id])
+  fan_config   FanConfiguration? @relation(fields: [fan_id], references: [fan_id])
+
+  servers Server[]
+
+  @@map("cluster_configuration")
+}
+
+// ==========================================
+// INSTANCES PHYSIQUES (DÉPLOIEMENT)
+// ==========================================
+model Cluster {
+  cluster_id          Int             @id @default(autoincrement()) @map("cluster_id")
+  name                String          @unique
+  created_at          DateTime        @default(now()) @map("created_at")
+  cluster_location_id Int
+  clusterLocation     ClusterLocation @relation(fields: [cluster_location_id], references: [location_id])
+  servers             Server[]
+
+  @@map("cluster")
+}
+
+model Server {
+  server_id               Int                   @id @default(autoincrement()) @map("server_id")
+  cluster_id              Int
+  config_id               Int?
+  hostname                String
+  status                  String                @default("ON")
+  base_consumption_offset Float                 @default(0)
+  created_at              DateTime              @default(now()) @map("created_at")
+  cluster                 Cluster               @relation(fields: [cluster_id], references: [cluster_id])
+  configuration           ClusterConfiguration? @relation(fields: [config_id], references: [cluster_config_id])
+  sensors                 Sensor[]
+  fans                    Fan[]
+
+  @@map("server")
+}
+
+model Fan {
+  fan_id         Int               @id @default(autoincrement()) @map("fan_id")
+  server_id      Int
+  fan_catalog_id Int?
+  fan_config_id  Int?
+  control_mode   String            @default("AUTO")
+  status         String            @default("OFF")
+  speed_percent  Int               @default(0)
+  created_at     DateTime          @default(now()) @map("created_at")
+  server         Server            @relation(fields: [server_id], references: [server_id])
+  catalog_info   FanCatalog?       @relation(fields: [fan_catalog_id], references: [fan_catalog_id])
+  fan_config     FanConfiguration? @relation(fields: [fan_config_id], references: [fan_id])
+
+  @@map("fan")
+}
+
+// ==========================================
+// CAPTEURS ET TÉLÉMÉTRIE
+// ==========================================
+model Sensor {
+  sensor_id   Int          @id @default(autoincrement()) @map("sensor_id")
+  server_id   Int
+  sensor_type String
+  unit        String
+  last_value  Float?
+  created_at  DateTime     @default(now()) @map("created_at")
+  server      Server       @relation(fields: [server_id], references: [server_id])
+  data        SensorData[]
+
+  @@map("sensor")
+}
+
+model SensorData {
+  id        Int      @id @default(autoincrement())
+  time      DateTime @default(now())
+  sensor_id Int
+  value     Float
+  sensor    Sensor   @relation(fields: [sensor_id], references: [sensor_id])
+
+  @@map("sensor_data")
+}
