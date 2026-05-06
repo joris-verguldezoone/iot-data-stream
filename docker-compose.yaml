@@ -1,43 +1,5 @@
 services:
-  mqtt-producer: # produit vers le broker
-    build:
-      context: .
-      dockerfile: Dockerfile-producer  
-    depends_on:
-      - mosquitto
-    environment:
-      - PYTHONUNBUFFERED=1
-    ports:
-      - "8089:8089" 
-
-  mqtt-consumer: # consomme le broker
-    build:
-      context: .
-      dockerfile: Dockerfile-consumer  
-    depends_on:
-      - mosquitto
-      - timescaledb
-    environment:
-      - PYTHONUNBUFFERED=1
-
-  api: # pour le rendu final
-    build:
-      context: ./api
-      dockerfile: Dockerfile-api
-    depends_on:
-      - timescaledb
-    environment:
-      - PYTHONUNBUFFERED=1
-      - DB_HOST=timescaledb
-      - DB_PORT=5432
-      - DB_NAME=tsdb
-      - DB_USER=tsuser
-      - DB_PASS=tspassword
-    ports: 
-      - 8000:8000
-
-
-  mosquitto: # broker
+  mosquitto:
     image: eclipse-mosquitto:latest
     container_name: mosquitto
     ports:
@@ -48,22 +10,20 @@ services:
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
 
-  timescaledb: # postgres ext db
-      image: timescale/timescaledb:latest-pg16
-      container_name: timescaledb
-      environment:
-        POSTGRES_USER: tsuser
-        POSTGRES_PASSWORD: tspassword
-        POSTGRES_DB: tsdb
-      ports:
-        - "5432:5432"
-      volumes:
-        - ./timescaledb/data:/var/lib/postgresql/data
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: timescaledb
+    environment:
+      POSTGRES_USER: tsuser
+      POSTGRES_PASSWORD: tspassword
+      POSTGRES_DB: tsdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./timescaledb/data:/var/lib/postgresql/data
 
-
-
-  pgadmin: # ui db
-    image: dpage/pgadmin4:latest
+  pgadmin:
+    image: dpage/pgadmin4:9.12.0
     container_name: pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
@@ -75,9 +35,8 @@ services:
     volumes:
       - pgadmin_data:/var/lib/pgadmin
 
-
   grafana:
-    image: grafana/grafana:12.3.0-17782621999
+    image: grafana/grafana:12.3.0
     container_name: grafana
     ports:
       - "3000:3000"
@@ -89,27 +48,45 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
 
+  api-node:
+    container_name: api-node
+    build:
+      context: ./nodejs-server
+      dockerfile: Dockerfile
+    depends_on:
+      - timescaledb
+    environment:
+      - DATABASE_URL=postgresql://tsuser:tspassword@timescaledb:5432/tsdb
+      - PORT=3333
+      - DEBUG=prisma:config,prisma:client:setup
+    ports:
+      - "3333:3333"
 
-  # angular:
-  #   build:
-  #     context: ./bot-ui
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "4200:4200"
-  #   volumes:
-  #     - ./bot-ui:/app
+  mqtt-producer:
+    container_name: mqtt-producer
+    build: ./nodejs-server
+    command: ["node", "dist/mqtt/producer.js"]
+    depends_on:
+      - mosquitto
+      - api-node
+    environment:
+      - DATABASE_URL=postgresql://tsuser:tspassword@timescaledb:5432/tsdb
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
 
-
-  # mqtt-explorer: autre UI
-  #   image: smeagolworms4/mqtt-explorer
-  #   container_name: mqtt-explorer
-  #   ports:
-  #     - "4000:4000"   # UI web MQTT Explorer
-  #   depends_on:
-  #     - mosquitto
+  mqtt-consumer:
+    container_name: mqtt-consumer
+    build: ./nodejs-server
+    command: ["node", "dist/src/mqtt/stateless-consumer.js"]
+    # command: ["node", "dist/src/mqtt/statefull-consumer.js"]
+    depends_on:
+      - mosquitto
+      - timescaledb
+    environment:
+      - DATABASE_URL=postgresql://tsuser:tspassword@timescaledb:5432/tsdb
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
 
 volumes:
   grafana_data:
   pgadmin_data:
   timescaledb:
-  

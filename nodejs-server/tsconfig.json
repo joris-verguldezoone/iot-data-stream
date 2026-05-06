@@ -8,7 +8,7 @@
     "strict": true,
     "skipLibCheck": true,
     "outDir": "dist",
-    "rootDir": "./", // On change rootDir pour inclure la racine
+    "rootDir": "src", // On change rootDir pour inclure la racine
     "resolveJsonModule": true,
     "lib": ["es2023"],
     "types": ["node"],
@@ -16,7 +16,6 @@
   },
   "include": [
     "src/**/*.ts", 
-    "prisma.config.ts" // ON AJOUTE LE FICHIER ICI
   ],
   "exclude": ["node_modules", "dist"]
 }

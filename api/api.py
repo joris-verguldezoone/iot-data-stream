@@ -3,7 +3,7 @@ import psycopg2
 
 from fastapi import FastAPI
 from sensors_services import get_sensors, serialize_row
-from seed_services import seed_cluster, seed_cluster_configuration, seed_computer_in_clusters, seed_cluster_config, seed_fan_configuration, seed_db
+from seed_services import seed_cluster, seed_cluster_configuration, seed_computer_in_clusters, seed_fan_configuration, seed_db
 from fastapi.responses import JSONResponse, StreamingResponse
 import csv
 import io
@@ -20,7 +20,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,      # <-- attention ici
+    allow_origins=origins,      
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

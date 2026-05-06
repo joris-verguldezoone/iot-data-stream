@@ -326,3 +326,6 @@ Si tu veux, je peux générer directement :
 un script seed qui crée les capteurs supplémentaires, profils de conso et PUE ; ou
 
 un module de simulation / fault injector qui applique les distributions (Weibull, drift, bursts) et produit des séries temporelles réalistes.
+
+Faire un sujet avec les normes ISO des data center, 
+Savoir ou sont localisés les datacenter et comment ils sont alimenté en électricité ? (énergie renouvellable, nucleaire, energies fossiles )

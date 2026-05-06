@@ -46,16 +46,26 @@ export default class SensorService {
    * Liste filtrée des données capteurs
    */
   async getSensorDataList(filters: SensorDataFilters = {}): Promise<SensorData[]> {
-    const { sensor_id, from, to, limit = 100 } = filters;
+
+    const where: any = {};
+
+    // 2. On ajoute les filtres seulement s'ils existent
+    if (filters.sensor_id) {
+      where.sensor_id = Number(filters.sensor_id);
+    }
+
+    if (filters.from || filters.to) {
+      where.time = {};
+
+      if (filters.from) 
+        where.time.gte = new Date(filters.from);
+      if (filters.to)   
+        where.time.lte = new Date(filters.to);
+    }
+
     return await this.prisma.sensorData.findMany({
-      where: {
-        sensor_id,
-        time: {
-          gte: from,
-          lte: to,
-        },
-      },
-      take: limit,
+      where: where,
+      take: Number(filters.limit) || 100,
       orderBy: { time: 'desc' },
     });
   }

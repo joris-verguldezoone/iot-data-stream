@@ -29,7 +29,6 @@ const seedServices = new SeedService(prisma);
 
 const start = async () => {
   try {
-    // 1. Swagger
     await fastify.register(swagger, {
       openapi: {
         info: {

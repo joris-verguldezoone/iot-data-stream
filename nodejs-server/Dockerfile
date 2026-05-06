@@ -1,38 +1,37 @@
 # --- Étape 1 : Build ---
 FROM node:20-alpine AS builder
-
 WORKDIR /app
 
-# On installe les dépendances (y compris devDeps pour compiler)
 COPY package*.json ./
 RUN npm install
 
-# Copie du code source
+# On copie tout (sauf ce qui est dans .dockerignore)
 COPY . .
 
-# Génération du client Prisma (chemin spécifique)
+# On génère Prisma
 RUN npx prisma generate --schema=./src/prisma/schema.prisma
 
-# Compilation TS -> JS (vérifie que ton script 'build' est bien 'tsc')
+# On compile (ça crée le dossier /app/dist/ sans le sous-dossier src)
 RUN npm run build
 
 # --- Étape 2 : Runtime ---
 FROM node:20-alpine
 WORKDIR /app
 
+# On ne récupère que le nécessaire
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
 
-# AJOUT CRUCIAL : On copie le client généré dans le dossier dist
-# pour que le require relatif de prisma.js fonctionne
-COPY --from=builder /app/src/prisma/generated /app/dist/prisma/generated
+# On place ton fichier de config à la racine de /app
+# Note : Vérifie si c'est .ts ou .js sur ton disque
+COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
-# On garde aussi la config et le schéma à la racine pour les outils CLI (prisma push)
-COPY --from=builder /app/src/prisma.config.js ./prisma.config.js
-COPY --from=builder /app/src/prisma ./src/prisma
+# On garde le dossier prisma pour les outils CLI, mais on le met dans /app/prisma
+COPY --from=builder /app/src/prisma ./prisma
+
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
-
 RUN chmod +x ./entrypoint.sh
+
 EXPOSE 3333
 ENTRYPOINT ["/bin/sh", "./entrypoint.sh"]

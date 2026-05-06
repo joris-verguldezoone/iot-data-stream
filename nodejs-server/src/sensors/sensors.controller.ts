@@ -6,21 +6,25 @@ const sensorService = new SensorService();
 
 export default async function sensorController(fastify: FastifyInstance) {
 
-  // ══════════════════════════════════════════════
-  // LOGS DE DONNÉES (SENSOR DATA)
-  // ══════════════════════════════════════════════
-
-  fastify.get('/sensor-data', {
+fastify.get('/sensor-data', {
     schema: {
       description: 'Récupère les logs de données capteurs avec filtres optionnels',
       tags: ['SensorData'],
       querystring: {
         type: 'object',
         properties: {
-          sensor_id: { type: 'integer' },
-          from:      { type: 'string', format: 'date-time' },
-          to:        { type: 'string', format: 'date-time' },
-          limit:     { type: 'integer', default: 100 },
+          sensor_id: { type: 'integer', default: 477 },
+          from: { 
+            type: 'string', 
+            format: 'date-time', 
+            default: '2026-04-26T00:00:00Z' // Format ISO avec le 'T' et le 'Z'
+          },
+          to: { 
+            type: 'string', 
+            format: 'date-time', 
+            default: '2026-04-26T23:59:59Z' 
+          },
+          limit: { type: 'integer', default: 100 },
         },
       },
       response: {
@@ -29,18 +33,19 @@ export default async function sensorController(fastify: FastifyInstance) {
     },
     handler: async (req: any) => {
       const { sensor_id, from, to, limit } = req.query;
-      return sensorService.getSensorDataList({
+
+      const filters = {
         sensor_id: sensor_id ? Number(sensor_id) : undefined,
-        from:      from ? new Date(from) : undefined,
-        to:        to   ? new Date(to)   : undefined,
-        limit:     limit ? Number(limit) : 100
-      });
+        from:      from      ? new Date(from)      : undefined,
+        to:        to        ? new Date(to)        : undefined,
+        limit:     limit     ? Number(limit)       : 100
+      };
+
+      console.log("Filtres envoyés au service :", filters);
+
+      return sensorService.getSensorDataList(filters);
     },
   });
-
-  // ══════════════════════════════════════════════
-  // EXPORT CSV
-  // ══════════════════════════════════════════════
 
   fastify.get('/download/sensors', {
     schema: {

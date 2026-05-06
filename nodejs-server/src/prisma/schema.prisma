@@ -4,7 +4,8 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
-  output   = "./generated/prisma"
+  
+  // output   = "./generated/prisma"
 }
 
 // ==========================================
@@ -23,10 +24,6 @@ model ClusterLocation {
 
   @@map("cluster_location")
 }
-
-// ==========================================
-// CONFIGURATIONS ET CATALOGUES
-// ==========================================
 
 // Nouveau modèle pour la scénarisation (Ticket 1)
 model LoadProfile {
@@ -103,9 +100,6 @@ model ClusterConfiguration {
   @@map("cluster_configuration")
 }
 
-// ==========================================
-// INSTANCES PHYSIQUES (DÉPLOIEMENT)
-// ==========================================
 model Cluster {
   cluster_id          Int      @id @default(autoincrement()) @map("cluster_id")
   name                String   @unique

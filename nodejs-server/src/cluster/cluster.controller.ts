@@ -1,9 +1,8 @@
 import { FastifyInstance } from 'fastify';
 import ClusterService from './cluster.services';
-// ─── Param types ────────────────────────────────────────────────────────────
-type IdParam = { Params: { id: string } };
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 
-// ─── Body types ─────────────────────────────────────────────────────────────
 type CreateClusterBody = { name: string; cluster_location_id: number };
 type UpdateClusterBody = Partial<{ name: string; cluster_location_id: number }>;
 
@@ -12,9 +11,6 @@ export default async function clusterController(fastify: FastifyInstance) {
 
   const clusterService = new ClusterService();
 
-  // ══════════════════════════════════════════════
-  // CLUSTERS
-  // ══════════════════════════════════════════════
 
   fastify.get('/clusters', {
     schema: {
