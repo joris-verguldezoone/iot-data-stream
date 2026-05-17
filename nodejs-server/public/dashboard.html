@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>IoT DataCenter Monitor</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white p-8">
+    <header class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
+        <h1 class="text-3xl font-bold text-blue-400">📟 DC-Monitor <span class="text-sm font-normal text-gray-500">v1.4</span></h1>
+        <div id="status" class="px-4 py-2 rounded-full bg-red-900 text-red-200 text-sm">Déconnecté</div>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 h-96 overflow-y-auto">
+            <h2 class="text-xl font-semibold mb-4 flex items-center">
+                <span class="mr-2">🚨</span> Journal des Alertes
+            </h2>
+            <div id="alerts" class="space-y-3">
+                <p class="text-gray-500 italic">En attente d'événements...</p>
+            </div>
+        </div>
+
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 italic">Commandes Simulation</h2>
+            <div class="space-y-4">
+                <button onclick="fetch('http://localhost:3333/sim/tick', {method:'POST'})" 
+                        class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-bold transition">
+                    ⏩ Forcer 1 Tick
+                </button>
+                <div class="flex gap-4">
+                    <button onclick="fetch('http://localhost:3333/sim/start', {method:'POST'})" 
+                            class="flex-1 bg-green-700 hover:bg-green-600 py-2 rounded-lg">Démarrer Auto</button>
+                    <button onclick="fetch('http://localhost:3333/sim/stop', {method:'POST'})" 
+                            class="flex-1 bg-gray-700 hover:bg-gray-600 py-2 rounded-lg">Arrêter</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+    <div class="bg-gray-800 p-4 rounded-lg border border-blue-500/30">
+        <p class="text-gray-400 text-sm">Température Moyenne</p>
+        <p id="avg-temp" class="text-3xl font-bold text-blue-400">-- °C</p>
+    </div>
+    <div class="bg-gray-800 p-4 rounded-lg border border-green-500/30">
+        <p class="text-gray-400 text-sm">Consommation Totale</p>
+        <p id="total-power" class="text-3xl font-bold text-green-400">-- W</p>
+    </div>
+    <div class="bg-gray-800 p-4 rounded-lg border border-purple-500/30">
+        <p class="text-gray-400 text-sm">Dernière Mise à jour</p>
+        <p id="last-tick" class="text-xl font-mono text-purple-400">--:--:--</p>
+    </div>    
+</div>    
+
+<div class="bg-gray-800 p-6 rounded-xl border border-gray-700 mt-6">
+    <canvas id="tempChart" height="100"></canvas>
+</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const socket = io("http://localhost:3333");
+        const alertsDiv = document.getElementById("alerts");
+        const statusDiv = document.getElementById("status");
+
+
+        // On ne met pas d'URL, Socket.io se connectera automatiquement au serveur qui a servi la page
+
+socket.on("connect", () => {    
+    console.log("Connecté au serveur ! ID:", socket.id);
+    statusDiv.innerText = "Connecté au flux live ✅";
+    statusDiv.className = "px-4 py-2 rounded-full bg-green-900 text-green-200 text-sm";
+});    
+
+socket.on("disconnect", () => {
+    statusDiv.innerText = "Déconnecté ❌";
+    statusDiv.className = "px-4 py-2 rounded-full bg-red-900 text-red-200 text-sm";
+});    
+        // Dans le <script> de dashboard.html
+
+    // Initialisation du graphique
+    const ctx = document.getElementById('tempChart').getContext('2d');
+    const tempChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Température Moyenne (°C)',
+                data: [],
+                borderColor: '#60a5fa',
+                tension: 0.4,
+                fill: true,
+                backgroundColor: 'rgba(96, 165, 250, 0.1)'
+            }]
+        },
+        options: { responsive: true, scales: { y: { min: 20, max: 110 } } }
+    });
+
+    // Dans ton socket.on("tick_update", ...), ajoute :
+    socket.on("tick_update", (data) => {
+        console.log("DONNÉES REÇUES :", data); // 👈 AJOUTE ÇA
+        const now = new Date().toLocaleTimeString();
+        
+        // Update Chart
+        tempChart.data.labels.push(now);
+        tempChart.data.datasets[0].data.push(data.avgTemp);
+        
+        // Garder seulement les 20 derniers points
+        if(tempChart.data.labels.length > 20) {
+            tempChart.data.labels.shift();
+            tempChart.data.datasets[0].data.shift();
+        }
+        tempChart.update();
+    });
+</script>
+    </script>
+</body>
+</html>

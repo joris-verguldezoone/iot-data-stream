@@ -141,4 +141,22 @@ export default class SensorService {
     // On transforme le flux de formatage en flux de lecture
     return Readable.from(csvStream);
   }
+
+  async getSensorHistory(sensorId: number, minutes: number, limit: number) {
+    const startTime = new Date(Date.now() - minutes * 60000);
+
+    return await prisma.sensorData.findMany({
+      where: {
+        sensor_id: sensorId,
+        time: { gte: startTime }
+      },
+      orderBy: { time: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        time: true,
+        value: true
+      }
+    });
+  }
 }

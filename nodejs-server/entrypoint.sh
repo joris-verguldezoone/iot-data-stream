@@ -1,9 +1,16 @@
-#!/bin/sh
-# On lance la synchro Prisma
-echo "🚀 Lancement de l'initialisation Prisma..."
-npx prisma db push --accept-data-loss
+#!/sh
+echo "🚀 Lancement de l'initialisation du DataCenter..."
 
-echo "✅ Schéma synchronisé. Exécution de la commande demandée..."
+# Boucle d'attente : tant que Prisma ne peut pas se connecter à la DB, on patine
+until npx prisma db push --accept-data-loss; do
+  echo "⏳ PostgreSQL initialise ses volumes, nouvelle tentative dans 2 secondes..."
+  sleep 2
+done
 
-# Le "exec $@" est CRUCIAL : il lance la commande définie dans le docker-compose
+echo "✅ Schéma mis à jour avec succès dans PostgreSQL !"
+
+# Génération obligatoire du client Prisma mis à jour
+npx prisma generate
+
+echo "🏃 Exec de la commande finale..."
 exec "$@"

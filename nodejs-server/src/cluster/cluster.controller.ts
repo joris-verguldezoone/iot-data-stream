@@ -1,111 +1,95 @@
 import { FastifyInstance } from 'fastify';
 import ClusterService from './cluster.services';
-import swagger from '@fastify/swagger';
-import swaggerUi from '@fastify/swagger-ui';
-
-type CreateClusterBody = { name: string; cluster_location_id: number };
-type UpdateClusterBody = Partial<{ name: string; cluster_location_id: number }>;
-
+import { 
+  CreateClusterSchema, 
+  CreateClusterDTO, 
+  UpdateClusterSchema, 
+  UpdateClusterDTO, 
+  ClusterParamsSchema, 
+  ClusterParams,
+} from './cluster.dto';
 
 export default async function clusterController(fastify: FastifyInstance) {
-
   const clusterService = new ClusterService();
 
-
-  fastify.get('/clusters', {
-    schema: {
-      description: 'Récupère la liste de tous les clusters',
-      tags: ['Cluster'],
-      response: {
-        200: { type: 'array', items: { $ref: 'Cluster#' } },
+  // GET ALL
+fastify.get('/clusters', {
+  schema: {
+    description: 'Récupère la liste de tous les clusters',
+    tags: ['Cluster'],
+  response: {
+        200: { 
+          type: 'array', 
+          items: { $ref: 'Cluster#' } 
+        },
       },
     },
-    handler: async () => {
-      return clusterService.getClusters(false);
-    },
-  });
+  handler: async () => {
+    const data = await clusterService.getClusters();
+    console.log("DONNÉES ENVOYÉES :", data[0]); // Regarde ce qui sort dans ton terminal
+    return data;
+  },
+});
 
-  fastify.get<{ Params: { id: number } }>('/clusters/:id', {
+  // GET BY ID
+  fastify.get<{ Params: ClusterParams }>('/clusters/:id', {
     schema: {
       description: 'Récupère un cluster par son ID',
       tags: ['Cluster'],
-      params: {
-        type: 'object',
-        properties: { id: { type: 'integer' } },
-        required: ['id'],
-      },
+      params: ClusterParamsSchema,
       response: {
         200: { $ref: 'Cluster#' },
       },
     },
     handler: async (req) => {
-      return clusterService.getClusterById(Number(req.params.id));
+      return await clusterService.getClusterById(req.params.id);
     },
   });
 
-  // spa mieux des dto ??
-  fastify.post<{ Body: CreateClusterBody }>('/clusters', {
+  // POST
+  fastify.post<{ Body: CreateClusterDTO }>('/clusters', {
     schema: {
       description: 'Crée un nouveau cluster',
       tags: ['Cluster'],
-      body: {
-        type: 'object',
-        required: ['name', 'cluster_location_id'],
-        properties: {
-          name: { type: 'string' },
-          cluster_location_id: { type: 'integer' },
-        },
-      },
+      body: CreateClusterSchema,
       response: {
-        201: { $ref: 'Cluster#' },
+        201: { $ref: 'Cluster#' }, // Correction : un seul objet, pas un array
       },
-    },
+    }, // Accolade fermante du schema ajoutée ici !
     handler: async (req, reply) => {
       const cluster = await clusterService.createCluster(req.body);
       return reply.code(201).send(cluster);
     },
   });
 
-  fastify.patch<{ Params: { id: number }; Body: UpdateClusterBody }>('/clusters/:id', {
+  // PATCH
+  fastify.patch<{ Params: ClusterParams; Body: UpdateClusterDTO }>('/clusters/:id', {
     schema: {
       description: 'Met à jour un cluster',
       tags: ['Cluster'],
-      params: {
-        type: 'object',
-        properties: { id: { type: 'integer' } },
-        required: ['id'],
-      },
-      body: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          cluster_location_id: { type: 'integer' },
-        },
-      },
+      params: ClusterParamsSchema,
+      body: UpdateClusterSchema,
       response: {
         200: { $ref: 'Cluster#' },
       },
     },
     handler: async (req) => {
-      return clusterService.updateCluster(Number(req.params.id), req.body);
+      return await clusterService.updateCluster(req.params.id, req.body);
     },
   });
 
-  fastify.delete<{ Params: { id: number } }>('/clusters/:id', {
+  // DELETE
+  fastify.delete<{ Params: ClusterParams }>('/clusters/:id', {
     schema: {
       description: 'Supprime un cluster',
       tags: ['Cluster'],
-      params: {
-        type: 'object',
-        properties: { id: { type: 'integer' } },
-        required: ['id'],
-      },
+      params: ClusterParamsSchema,
       response: {
         200: { $ref: 'Cluster#' },
       },
     },
     handler: async (req) => {
-      return clusterService.deleteCluster(Number(req.params.id));
+      return await clusterService.deleteCluster(req.params.id);
     },
   });
 }

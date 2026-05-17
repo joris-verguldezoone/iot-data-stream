@@ -1,0 +1,26 @@
+[
+  {
+    "id": "op_fan_failure",
+    "name": "Défaut Matériel : Panne Ventilateur",
+    "description": "Arrêt mécanique d'un des ventilateurs de refroidissement sur le serveur srv-001.",
+    "events": [
+      { "tick": 15, "type": "CRASH_FAN", "targetId": 1 }
+    ]
+  },
+  {
+    "id": "op_traffic_surge",
+    "name": "Surcharge Opérationnelle : Hausse de Trafic",
+    "description": "Soudaine vagues de requêtes hors production provoquant un pic de charge global.",
+    "events": [
+      { "tick": 10, "type": "LOAD_SPIKE_ALL", "value": 90 }
+    ]
+  },
+  {
+    "id": "op_thermal_drift",
+    "name": "Dégradation Physique : Dérive Thermique",
+    "description": "Perte progressive de l'efficacité de dissipation thermique sur le nœud de calcul 2.",
+    "events": [
+      { "tick": 5, "type": "THERMAL_DRIFT_SERVER", "targetId": 2, "value": 1.5 }
+    ]
+  }
+]

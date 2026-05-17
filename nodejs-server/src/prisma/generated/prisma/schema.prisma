@@ -166,11 +166,14 @@ model Sensor {
 }
 
 model SensorData {
-  id        Int      @id @default(autoincrement())
+  id        Int      @default(autoincrement())
   time      DateTime @default(now())
   sensor_id Int
   value     Float
   sensor    Sensor   @relation(fields: [sensor_id], references: [sensor_id])
 
+  // On retire @id de l'id seul et on crée une clé composite
+  // C'est obligatoire pour que Timescale puisse partitionner correctement
+  @@id([id, time]) 
   @@map("sensor_data")
 }

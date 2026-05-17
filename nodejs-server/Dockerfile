@@ -5,30 +5,28 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# On copie tout (sauf ce qui est dans .dockerignore)
+# On copie l'intégralité des fichiers (y compris le dossier public)
 COPY . .
 
-# On génère Prisma
+# On génère Prisma et on build le TypeScript
 RUN npx prisma generate --schema=./src/prisma/schema.prisma
-
-# On compile (ça crée le dossier /app/dist/ sans le sous-dossier src)
 RUN npm run build
 
 # --- Étape 2 : Runtime ---
 FROM node:20-alpine
 WORKDIR /app
 
-# On ne récupère que le nécessaire
+# On ne récupère que le strict nécessaire pour l'exécution
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
-
-# On place ton fichier de config à la racine de /app
-# Note : Vérifie si c'est .ts ou .js sur ton disque
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 
-# On garde le dossier prisma pour les outils CLI, mais on le met dans /app/prisma
-COPY --from=builder /app/src/prisma ./prisma
+# 🌟 LA CORRECTION EST ICI : On rapatrie le dossier public dans le conteneur final !
+COPY --from=builder /app/public ./public
+
+# On copie dans ./src/prisma pour garder le dossier "src" nécessaire aux migrations
+COPY --from=builder /app/src/prisma ./src/prisma
 
 COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh

@@ -1,4 +1,4 @@
-export default interface Cluster_Location {
+export interface Cluster_Location {
   name: string;
   city: string;
   envFactor: number;      // Impact climatique (ex: 1.2 pour Marseille, 0.9 pour Oslo)

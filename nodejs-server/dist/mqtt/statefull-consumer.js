@@ -5,9 +5,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 require("dotenv/config");
 const mqtt_1 = __importDefault(require("mqtt"));
-const index_js_1 = require("../prisma/generated/prisma/index.js");
-const prisma = new index_js_1.PrismaClient();
-const client = mqtt_1.default.connect(process.env.MQTT_BROKER_URL || "mqtt://localhost:1883");
+const pg_1 = __importDefault(require("pg"));
+const adapter_pg_1 = require("@prisma/adapter-pg");
+const client_1 = require("@prisma/client");
+// 🌟 ON REPREND LA CONFIG DU PRODUCER QUI FONCTIONNE
+const pool = new pg_1.default.Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new adapter_pg_1.PrismaPg(pool);
+const prisma = new client_1.PrismaClient({ adapter });
+// Connexion MQTT
+const BROKER_URL = process.env.MQTT_BROKER_URL || "mqtt://mosquitto:1883";
+const client = mqtt_1.default.connect(BROKER_URL);
 client.on("connect", () => {
     console.log("📥 Consumer FULL connecté (Mode: Update + Insert)");
     client.subscribe("v1/gateway/telemetry/#");

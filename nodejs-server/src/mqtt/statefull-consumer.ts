@@ -1,9 +1,17 @@
 import "dotenv/config";
 import mqtt from "mqtt";
-import { PrismaClient } from "../prisma/generated/prisma/index.js";
+import pg from "pg"; 
+import { PrismaPg } from "@prisma/adapter-pg"; 
+import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
-const client = mqtt.connect(process.env.MQTT_BROKER_URL || "mqtt://localhost:1883");
+// 🌟 ON REPREND LA CONFIG DU PRODUCER QUI FONCTIONNE
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+
+// Connexion MQTT
+const BROKER_URL = process.env.MQTT_BROKER_URL || "mqtt://mosquitto:1883";
+const client = mqtt.connect(BROKER_URL);
 
 client.on("connect", () => {
   console.log("📥 Consumer FULL connecté (Mode: Update + Insert)");

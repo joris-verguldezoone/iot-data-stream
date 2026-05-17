@@ -23,20 +23,26 @@ const POINTS_PER_SENSOR = (DAYS_HISTORY * 24 * 60) / MINUTES_STEP; // 2016 point
 async function main() {
   console.log("🧨 Nettoyage intégral de la base...");
   // Suppression ordonnée pour respecter les contraintes de clés étrangères
-  await prisma.sensorData.deleteMany();
-  await prisma.sensor.deleteMany();
-  await prisma.fan.deleteMany(); 
-  await prisma.server.deleteMany();
-  await prisma.cluster.deleteMany();
-  await prisma.clusterConfiguration.deleteMany();
-  await prisma.fanConfiguration.deleteMany(); 
-  await prisma.fanCatalog.deleteMany();
-  await prisma.cpuCoolerCatalog.deleteMany();
-  await prisma.loadProfile.deleteMany();
-  await prisma.clusterLocation.deleteMany();
+  const tables = [
+    "sensor_data",
+    "sensor",
+    "fan",
+    "server",
+    "cluster",
+    "cluster_configuration",
+    "fan_configuration",
+    "fan_catalog",
+    "cpucooler_catalog",
+    "load_profile",
+    "cluster_location"
+  ];
 
-  console.log("🏗️  Reconstruction du monde IoT...");
+  // On vide tout et on force le RESTART IDENTITY
+  for (const table of tables) {
+    await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${table}" RESTART IDENTITY CASCADE;`);
+  }
 
+  console.log("🏗️  Reconstruction du monde IoT avec des IDs tout neufs (commençant à 1)...");
   // 1. Profils de Charge (24h)
   console.log("📈 Génération des profils horaires...");
   let firstProfileId: number | undefined;

@@ -1,5 +1,5 @@
 // src/types/server.type.ts
-import { Prisma } from "../../prisma/generated/prisma/client";
+import { Prisma } from "@prisma/client";
 
 export type ServerWithHardware = Prisma.ServerGetPayload<{
   include: { 

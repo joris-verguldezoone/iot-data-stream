@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id="sandbox-form">
+  <h3>🏗️ Generateur de Topologie</h3>
+  
+  <div id="clusters-list">
+    </div>
+
+  <button type="button" onclick="addClusterLine()">➕ Ajouter un cluster</button>
+  <button type="button" onclick="deployTopology()" style="background: green; color: white;">🚀 Lancer le Build</button>
+</div>
+
+<script>
+// Fonction pour ajouter dynamiquement une ligne de selects avec le bouton [+]
+function addClusterLine() {
+  const container = document.getElementById('clusters-list');
+  const lineHtml = `
+    <div class="cluster-line" style="margin-bottom: 10px; border: 1px solid #ccc; padding: 10px;">
+      <input type="text" placeholder="Nom du cluster (ex: Rack-01)" class="c-name">
+      
+      <select class="c-city">
+        <option value="Paris">Paris</option>
+        <option value="Marseille">Marseille</option>
+        <option value="Oslo">Oslo</option>
+      </select>
+      
+      <select class="c-profile">
+        <option value="BIG_CLUSTER_HIGH_POWER">BIG HIGH POWER</option>
+        <option value="MEDIUM_GPU">MEDIUM GPU</option>
+        <option value="SMALL_EDGE_CLOSET">SMALL EDGE CLOSET</option>
+      </select>
+      
+      <input type="number" value="1" min="1" class="c-count" style="width: 50px;"> clusters
+    </div>
+  `;
+  container.insertAdjacentHTML('beforeend', lineHtml);
+}
+
+// Fonction qui scanne les lignes, fabrique le JSON et l'envoie à ton API Fastify
+async function deployTopology() {
+  const lines = document.querySelectorAll('.cluster-line');
+  const topology = Array.from(lines).map(line => ({
+    clusterName: line.querySelector('.c-name').value,
+    city: line.querySelector('.c-city').value,
+    configProfile: line.querySelector('.c-profile').value,
+    clusterCount: parseInt(line.querySelector('.c-count').value),
+    nodesOverride: 0
+  }));
+
+  const response = await fetch('http://localhost:3333/build-exercise', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topology })
+  });
+  
+  alert(response.ok ? "Sandbox initialisée !" : "Erreur de build");
+}
+
+// Générer une première ligne par défaut au chargement
+addClusterLine();
+</script>
+</body>
+</html>
