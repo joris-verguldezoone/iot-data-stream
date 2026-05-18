@@ -217,17 +217,18 @@ export class ExerciseBuilderService {
     async seedHealthyWeekHistory(): Promise<number> {
         console.log("⏳ [TIME-TRAVEL] Début de la génération des 7 jours d'historique sain...");
         
-        // 1. Récupération de l'infrastructure actuelle (tes 40 serveurs répartis dans les 4 clusters)
         const servers = await this.prisma.server.findMany({
             include: { sensors: true, cluster: { include: { clusterLocation: true } } }
         });
 
-        if (servers.length === 0) {
-            throw new Error("Impossible de générer l'historique : aucun serveur n'existe en base. Lance d'abord /build-exercise.");
-        }
+        if (servers.length === 0) throw new Error("Aucun serveur en base...");
 
         const bulkData: any[] = [];
         const now = new Date();
+        
+        // 🌟 FIXE : On tronque à minuit pile pour caler parfaitement le rythme jour/nuit
+        now.setHours(0, 0, 0, 0); 
+        
         const totalHours = 7 * 24; // 168 points historiques par capteur
 
         // 2. Boucle temporelle : on remonte 168 heures dans le passé et on avance heure par heure

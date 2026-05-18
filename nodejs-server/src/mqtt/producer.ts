@@ -49,7 +49,10 @@ async function startSimulation() {
     await refreshAllCitiesWeather(ALL_POSSIBLE_CITIES);
     setInterval(() => refreshAllCitiesWeather(ALL_POSSIBLE_CITIES), WEATHER_REFRESH_INTERVAL);
     
+    // 🌟 FIXE : La date simulée commence à minuit pour s'aligner sur l'heure 0 du profil de charge
     const simulatedDate = new Date();
+    simulatedDate.setHours(0, 0, 0, 0); 
+    
     const localThermalCache: Record<string, number> = {};
 
     async function tick() {

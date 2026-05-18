@@ -1,3 +1,4 @@
+// src/simulation/simulation.controller.ts
 import { FastifyInstance } from "fastify";
 import SimulationService from "./simulation.service";
 import { ExerciseBuilderService } from "./exercise-builder.service";
@@ -14,23 +15,15 @@ export default async function simulationController(fastify: FastifyInstance) {
 
     /**
      * GET /internal/cadence
-     * Endpoint privé pour synchroniser le conteneur mqtt-producer
-     */
-/**
-     * GET /internal/cadence
-     * Synchro totale pour le mqtt-producer (Cadence, État et Modificateurs de Scénarios)
+     * Endpoint privé de synchronisation complète pour le mqtt-producer (US 1 & 3)
      */
     fastify.get('/internal/cadence', { schema: { hide: true } }, async () => {
-        // On récupère le coefficient de charge et de chaleur du scénario s'il y en a un
-        const activeScenario = fastify.scenarioService.getCurrentScenario();
-        
         return { 
             cadenceMs: currentCadenceMs,
             isRunning: timer !== undefined,
-            // Si un scénario de surcharge est actif, on passe son multiplicateur, sinon 1.0
-            loadMultiplier: activeScenario?.effects?.loadFactor ?? 1.0,
-            // Si une dérive thermique est en cours, on transmet sa valeur, sinon 0.0
-            thermalDrift: activeScenario?.effects?.thermalDrift ?? 0.0
+            // 🌟 Appels conformes aux types de ton ScenarioService
+            loadMultiplier: fastify.scenarioService.getLoadMultiplier(),
+            thermalDrifts: fastify.scenarioService.getAllThermalDrifts()
         };
     });
 
@@ -78,7 +71,7 @@ export default async function simulationController(fastify: FastifyInstance) {
                     persist: { type: 'boolean', default: false, description: 'Si true, enregistre les métriques dans TimescaleDB' },
                     cadence: { type: 'number', enum: [3, 4, 5, 6, 7, 8, 9, 10], default: 5, description: 'Fréquence de rafraîchissement en secondes' },
                     tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h', description: 'Durée virtuelle d\'un tick' },
-                    startDate: { type: 'string', description: 'Date de début personnalisée' }
+                    startDate: { type: 'string', description: 'Date de début personnalisée (US 2)' }
                 }
             }
         }
@@ -99,7 +92,6 @@ export default async function simulationController(fastify: FastifyInstance) {
             fastify.scenarioService.clearScenario();
             fastify.log.info("♻️ [START-SEAL] Nettoyage préemptif des pannes et scénarios résiduels réussi.");
         } catch (scenarioError) {
-            // 🌟 CORRIGÉ : Utilisation du format d'objet de log structuré pour Pino/Fastify
             fastify.log.error({ err: scenarioError }, "⚠️ Impossible de clear le scenarioService au démarrage");
         }
         
@@ -284,5 +276,92 @@ export default async function simulationController(fastify: FastifyInstance) {
         const builder = new ExerciseBuilderService(prisma);
         const totalRows = await builder.seedHealthyWeekHistory();
         return { status: 'success', message: `Historique généré (${totalRows} lignes).` };
+    });
+
+    /**
+     * POST /sim/scenarios/marseille
+     * Lance directement le scénario personnalisé Canicule de Marseille à horaire fixe (US 1, 2, 3)
+     */
+    /**
+     * POST /sim/scenarios/marseille
+     * Lance le scénario Marseille avec cadence et durée de ticks ajustables par l'utilisateur
+     */
+    fastify.post<{ Querystring: { persist?: boolean; cadence?: number; tickDuration?: string } }>('/sim/scenarios/marseille', {
+        schema: { 
+            tags: ['Simulation'], 
+            description: 'Arme le scénario de Marseille à horaire fixe et démarre la boucle à vitesse configurable',
+            querystring: {
+                type: 'object',
+                properties: {
+                    persist: { type: 'boolean', default: true, description: 'Si true, enregistre les métriques dans TimescaleDB' },
+                    cadence: { type: 'number', enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 5, description: 'Fréquence de rafraîchissement en secondes' },
+                    tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h', description: 'Durée virtuelle d\'un tick' }
+                }
+            }
+        }
+    }, async (req, reply) => {
+        const persist = req.query.persist !== false; // true par défaut pour ce scénario
+        const cadenceSeconds = req.query.cadence ?? 5;
+        const tickDuration = req.query.tickDuration ?? '1h';
+
+        // 1. SÉCURITÉ : Si un métronome tourne, on le stoppe cleanly
+        if (timer) {
+            clearInterval(timer);
+            timer = undefined;
+        }
+
+        // 2. HORAIRE FIXE : Alignement parfait sur le Lundi 00h00
+        const fixedStartDate = new Date("2026-05-18T00:00:00.000Z");
+        SimulationService.setClock(fixedStartDate);
+
+        // 3. ARMEMENT : Chargement du scénario depuis scenarios.json
+        try {
+            await fastify.scenarioService.loadScenario('sc_marseille_gpu_melt');
+        } catch (err) {
+            return reply.status(404).send({ 
+                status: 'error', 
+                message: "Le scénario [sc_marseille_gpu_melt] est introuvable. Vérifie ton fichier scenarios.json." 
+            });
+        }
+
+        // 4. CALCUL DE LA VITESSE VIRTUELLE
+        virtualMinutesElapsed = 0;
+        currentCadenceMs = cadenceSeconds * 1000;
+
+        let minutesPerTick = 60;
+        if (tickDuration !== '1h') {
+            minutesPerTick = parseInt(tickDuration, 10) || 60;
+        }
+
+        // 5. DÉMARRAGE AUTOMATIQUE CADENCÉ
+        timer = setInterval(async () => {
+            try {
+                const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
+                await service.simulateTick({ persist, tickDuration });
+                
+                virtualMinutesElapsed += minutesPerTick;
+                
+                if (virtualMinutesElapsed >= ONE_WEEK_MINUTES) {
+                    clearInterval(timer);
+                    timer = undefined; 
+                    fastify.io.emit('simulation_auto_stopped', { 
+                        reason: '1_week_completed',
+                        message: "🏁 Fin du benchmark Marseille : 1 semaine complète s'est écoulée !"
+                    });
+                }
+            } catch (err) {
+                fastify.log.error(err);
+            }
+        }, currentCadenceMs);
+
+        return { 
+            status: "success", 
+            message: "🔥 Scénario Marseille enclenché !", 
+            setup: {
+                cadence: `${cadenceSeconds}s par tick`,
+                virtualTimePerTick: tickDuration,
+                startedAt: fixedStartDate.toISOString()
+            }
+        };
     });
 }

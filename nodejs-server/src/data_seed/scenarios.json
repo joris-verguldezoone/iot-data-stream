@@ -1,5 +1,15 @@
 [
   {
+    "id": "sc_marseille_gpu_melt",
+    "name": "🔥 [MARSEILLE] Canicule Phocéenne & Surcharge GPU",
+    "description": "Scénario chirurgical pour la topologie Marseille (MEDIUM_GPU). Une vague de chaleur couplée à un pic d'inférence IA sature les workers. Au tick 8, le premier nœud de calcul (srv-3) subit une dérive thermique, suivie du crash complet de son ventilateur principal (fan-9) au tick 12. Surchauffe critique garantie !",
+    "events": [
+      { "tick": 4, "type": "LOAD_SPIKE_ALL", "value": 90 },
+      { "tick": 8, "type": "THERMAL_DRIFT_SERVER", "targetId": 3, "value": 15.0 },
+      { "tick": 12, "type": "CRASH_FAN", "targetId": 9 }
+    ]
+  },
+  {
     "id": "op_fan_failure",
     "name": "Défaut Matériel : Panne Ventilateur",
     "description": "Arrêt mécanique d'un des ventilateurs de refroidissement sur le serveur srv-001.",

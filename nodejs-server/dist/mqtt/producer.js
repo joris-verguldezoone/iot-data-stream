@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+// nodejs-server/src/workers/producer.ts
 require("dotenv/config");
 const mqtt_1 = __importDefault(require("mqtt"));
 const pg_1 = __importDefault(require("pg"));
@@ -17,19 +18,16 @@ const WEATHER_REFRESH_INTERVAL = 20 * 60 * 1000;
 const AC_TARGET = 20.0;
 const AC_EFFICIENCY = 0.92;
 const globalWeather = {};
-let dynamicTelemetryInterval = 5000; // Cadence adaptative initiale (5s)
+let dynamicTelemetryInterval = 5000;
 async function refreshAllCitiesWeather(cities) {
-    console.log(`☁️  Mise à jour météo pour ${cities.length} villes...`);
     for (const city of cities) {
         try {
             const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${process.env.OPENWEATHER_API_KEY}`;
             const response = await fetch(url);
             if (!response.ok)
-                throw new Error(`Erreur API pour ${city}`);
+                throw new Error();
             const data = (await response.json());
             globalWeather[city] = data.main.temp;
-            console.log(`📍 ${city} : ${data.main.temp}°C`);
-            await new Promise(resolve => setTimeout(resolve, 500));
         }
         catch (err) {
             globalWeather[city] = globalWeather[city] || 18.0;
@@ -45,31 +43,40 @@ async function startSimulation() {
     console.log("📡 Connexion au Broker MQTT...");
     client.on("connect", async () => {
         console.log("✅ Connecté au Broker.");
-        try {
-            // @ts-ignore
-            await prisma.cluster_configuration.updateMany({ where: { name: { contains: 'PARIS' } }, data: { pue: 1.25 } });
-            // @ts-ignore
-            await prisma.cluster_configuration.updateMany({ where: { name: { contains: 'MARSEILLE' } }, data: { pue: 1.40 } });
-            // @ts-ignore
-            await prisma.cluster_configuration.updateMany({ where: { name: { contains: 'OSLO' } }, data: { pue: 1.15 } });
-            console.log("🛡️  [SELF-HEALING] Valeurs des PUE corrigées avec succès !");
-        }
-        catch (e) { }
-        // 🌟 SÉCURITÉ MÉTEO : On s'affranchit de la base au démarrage en chargeant toutes les villes possibles du TP
         const ALL_POSSIBLE_CITIES = ['Paris', 'Marseille', 'Frankfurt', 'Oslo', 'Dublin'];
         await refreshAllCitiesWeather(ALL_POSSIBLE_CITIES);
         setInterval(() => refreshAllCitiesWeather(ALL_POSSIBLE_CITIES), WEATHER_REFRESH_INTERVAL);
-        console.log(`🚀 Simulation initialisée et parée aux changements de topologies dynamiques.`);
-        // 🌟 INITIALISATION DE L'HORLOGE VIRTUELLE PROGRESSIVE
         const simulatedDate = new Date();
         const localThermalCache = {};
-        // 🌟 BOUCLE THERMIQUE DYNAMIQUE
         async function tick() {
             try {
-                // À chaque impulsion, on ajoute 1 heure artificielle dans le futur
+                // Variables locales pour stocker l'influence du scénario dynamique en cours
+                let loadMultiplier = 1.0;
+                let scenarioThermalDrift = 0.0;
+                // Vérification du statut de l'API (US 1 + Récupération des modificateurs de scénario)
+                try {
+                    const cadenceResponse = await fetch("http://api-node:3333/internal/cadence");
+                    if (cadenceResponse.ok) {
+                        // 🌟 On enrichit le typage pour intercepter les forces du scénario actif
+                        const cadenceData = (await cadenceResponse.json());
+                        if (cadenceData.cadenceMs)
+                            dynamicTelemetryInterval = cadenceData.cadenceMs;
+                        if (!cadenceData.isRunning) {
+                            console.log("💤 [PRODUCER] Simulation en pause. En attente...");
+                            return;
+                        }
+                        // 🌟 Extraction des modificateurs d'anomalies
+                        if (cadenceData.loadMultiplier !== undefined)
+                            loadMultiplier = cadenceData.loadMultiplier;
+                        if (cadenceData.thermalDrift !== undefined)
+                            scenarioThermalDrift = cadenceData.thermalDrift;
+                    }
+                }
+                catch (err) {
+                    return;
+                }
                 simulatedDate.setHours(simulatedDate.getHours() + 1);
                 const currentHour = simulatedDate.getHours();
-                // 🌟 CORRECTION MAJEURE : On récupère la topologie en direct de la DB à chaque tick
                 const activeServers = await prisma.server.findMany({
                     include: {
                         configuration: { include: { load_profile: true } },
@@ -77,22 +84,8 @@ async function startSimulation() {
                         cluster: { include: { clusterLocation: true } }
                     }
                 });
-                // Si l'étudiant purge la base ou reconstruit son exercice, on attend proprement sans crasher
-                if (activeServers.length === 0) {
-                    console.log(`[${simulatedDate.toLocaleString()}] ⚠️ [PRODUCER] Base de données vide ou en cours de reconstruction... En attente du seeding.`);
+                if (activeServers.length === 0)
                     return;
-                }
-                // 1. Récupération de la cadence
-                try {
-                    const cadenceResponse = await fetch("http://api-node:3333/internal/cadence");
-                    if (cadenceResponse.ok) {
-                        const cadenceData = (await cadenceResponse.json());
-                        if (cadenceData.cadenceMs)
-                            dynamicTelemetryInterval = cadenceData.cadenceMs;
-                    }
-                }
-                catch (err) { }
-                // 2. Récupération des registres de ventilation
                 let coolingRegistry = {};
                 try {
                     const response = await fetch("http://api-node:3333/internal/control");
@@ -100,7 +93,6 @@ async function startSimulation() {
                         coolingRegistry = (await response.json());
                 }
                 catch (err) { }
-                // 3. Génération de la physique asymétrique
                 for (const server of activeServers) {
                     const city = server.cluster.clusterLocation.location || "Paris";
                     const location = city.toLowerCase();
@@ -110,65 +102,74 @@ async function startSimulation() {
                     else if (location.includes("oslo"))
                         tExt = 12.0;
                     const tAmb = getAmbientTemp(tExt);
-                    const profileName = server.configuration?.load_profile?.name || "Standard_Cycle";
-                    const currentProfile = await prisma.loadProfile.findUnique({
-                        where: { name_hour: { name: profileName, hour: currentHour % 24 } }
-                    });
-                    let load = currentProfile?.expected_load_percent;
-                    if (load === undefined || load === null) {
-                        if (location.includes("paris")) {
-                            load = 0.25 + 0.55 * Math.sin((((currentHour % 24) - 6) / 24) * 2 * Math.PI);
+                    // 🌟 1. DÉCOUPLAGE DE LA CHARGE (MASTER VS WORKER)
+                    let finalLoad = 0.10; // Par défaut, un Master dort à 10% de charge stable
+                    if (!server.is_master) {
+                        // Seuls les Workers subissent les courbes sinusoïdales et les profils de charge lourds
+                        const profileName = server.configuration?.load_profile?.name || "Standard_Cycle";
+                        const currentProfile = await prisma.loadProfile.findUnique({
+                            where: { name_hour: { name: profileName, hour: currentHour % 24 } }
+                        });
+                        finalLoad = currentProfile?.expected_load_percent ?? 0.25;
+                        if (currentProfile?.expected_load_percent === undefined) {
+                            if (location.includes("paris")) {
+                                finalLoad = 0.25 + 0.55 * Math.sin((((currentHour % 24) - 6) / 24) * 2 * Math.PI);
+                            }
+                            else if (location.includes("marseille")) {
+                                finalLoad = 0.45 + 0.15 * Math.sin(((currentHour % 24) / 24) * 2 * Math.PI);
+                            }
                         }
-                        else if (location.includes("marseille")) {
-                            load = 0.45 + 0.15 * Math.sin(((currentHour % 24) / 24) * 2 * Math.PI);
-                        }
-                        else {
-                            load = 0.25 + 0.05 * Math.sin(((currentHour % 24) / 24) * 2 * Math.PI);
-                        }
+                        // 🌟 MODIFICATEUR DE SCÉNARIO : On applique le pic de charge (ex: op_traffic_surge)
+                        finalLoad = finalLoad * loadMultiplier;
                     }
-                    load = Math.max(0.05, Math.min(0.95, load));
-                    const targetMax = currentProfile?.target_temp_celsius || 70;
+                    finalLoad = Math.max(0.05, Math.min(0.95, finalLoad));
+                    // 🌟 2. LE PIMENT THERMIQUE (US 3)
+                    const targetMax = server.is_master ? 55 : (server.configuration?.load_profile?.target_temp_celsius || 92);
                     const fanSpeed = coolingRegistry[server.hostname] ?? 30;
-                    const coolingImpact = (fanSpeed - 30) * 0.25;
-                    const targetTemp = tAmb + (load * (targetMax - tAmb)) - coolingImpact;
-                    let inertiaFactor = 0.70;
-                    if (location.includes("paris"))
-                        inertiaFactor = 0.92;
-                    else if (location.includes("oslo"))
-                        inertiaFactor = 0.40;
-                    const previousTemp = localThermalCache[server.hostname];
-                    const computedTemp = previousTemp !== undefined
-                        ? (previousTemp * inertiaFactor) + (targetTemp * (1 - inertiaFactor))
-                        : targetTemp;
+                    const coolingImpact = (fanSpeed - 30) * 0.4;
+                    let targetTemp = tAmb + (finalLoad * (targetMax - tAmb)) - coolingImpact;
+                    const previousTemp = localThermalCache[server.hostname] || 32.0;
+                    let inertiaFactor = server.is_master ? 0.50 : (location.includes("paris") ? 0.92 : 0.60);
+                    let computedTemp = (previousTemp * inertiaFactor) + (targetTemp * (1 - inertiaFactor));
+                    // Simulateur de panne matérielle / Surchauffe non régulée
+                    if (fanSpeed <= 20) {
+                        computedTemp = previousTemp + (finalLoad * 8.0);
+                    }
+                    // 🌟 MODIFICATEUR DE SCÉNARIO : Injection directe de la dérive thermique (ex: canicule/panne de climatisation)
+                    computedTemp = computedTemp + scenarioThermalDrift;
+                    // Limitation physique supérieure (Protection silicium avant destruction)
+                    computedTemp = Math.min(105.0, Math.max(28.0, computedTemp));
                     localThermalCache[server.hostname] = computedTemp;
+                    // Consommation électrique
                     // @ts-ignore
-                    const maxConsumption = server.is_master ? (server.configuration?.consomation_per_master || 300) : (server.configuration?.consomation_per_worker || 250);
-                    const baseConsumption = maxConsumption * 0.15;
+                    const maxConsumption = server.is_master ? (server.configuration?.consomation_per_master || 350) : (server.configuration?.consomation_per_worker || 220);
+                    const baseConsumption = maxConsumption * 0.20;
+                    const currentPower = baseConsumption + (finalLoad * (maxConsumption - baseConsumption)) + (fanSpeed * 0.6);
                     const payload = {
                         timestamp: simulatedDate.toISOString(),
                         hostname: server.hostname,
                         environment: { external_city: city, external_temp: tExt.toFixed(1), ambient_dc_temp: tAmb.toFixed(1) },
                         current_fan_speed: fanSpeed,
-                        load_percent: (load * 100).toFixed(2),
+                        load_percent: (finalLoad * 100).toFixed(2),
                         sensors: server.sensors.map(s => {
                             let finalValue = 0;
                             if (s.sensor_type === "CPU_TEMP")
-                                finalValue = computedTemp + (Math.random() - 0.5) * 0.4;
+                                finalValue = computedTemp + (Math.random() - 0.5) * 0.3;
                             else if (s.sensor_type === "LOAD")
-                                finalValue = load * 100 + (Math.random() - 0.5) * 1.5;
+                                finalValue = finalLoad * 100;
                             else if (s.sensor_type.startsWith("FAN_SPEED"))
                                 finalValue = fanSpeed;
                             else if (s.sensor_type === "TOTAL_POWER")
-                                finalValue = baseConsumption + (load * (maxConsumption - baseConsumption)) + (fanSpeed * 0.4);
+                                finalValue = currentPower;
                             return { id: s.sensor_id, type: s.sensor_type, value: finalValue.toFixed(2), unit: s.unit };
                         })
                     };
                     client.publish(`v1/gateway/telemetry/${server.hostname}`, JSON.stringify(payload));
                 }
-                console.log(`[${simulatedDate.toLocaleString()}] 📤 Batch MQTT transmis avec succès (${activeServers.length} serveurs).`);
+                console.log(`[${simulatedDate.toLocaleString()}] 📤 Télémétrie asymétrique transmise (Masters stables, Workers dynamiques).`);
             }
             catch (globalError) {
-                console.error("❌ CRASH DANS LE TICK DU PRODUCER :", globalError);
+                console.error("❌ CRASH TICK :", globalError);
             }
             finally {
                 setTimeout(tick, dynamicTelemetryInterval);

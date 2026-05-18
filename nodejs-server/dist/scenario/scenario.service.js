@@ -12,11 +12,31 @@ class ScenarioService {
     activeScenario = null;
     currentTick = 0;
     activeThermalDrifts = new Map();
-    // 🚨 NOUVEAU : Suivi des réparations en cours { fanId -> { serverId, ticksRestants } }
+    // 🌟 SUIVI DYNAMIQUE DES MUTATIONS DE CHARGE GLOBALE
+    currentLoadMultiplier = 1.0;
+    // Suivi des réparations en cours { fanId -> { serverId, ticksRestants } }
     pendingRepairs = new Map();
     constructor(prisma, io) {
         this.prisma = prisma;
         this.io = io;
+    }
+    /**
+     * 🌟 US 1 : Retourne le scénario actuellement chargé (Métadonnées)
+     */
+    getCurrentScenario() {
+        return this.activeScenario;
+    }
+    /**
+     * 🌟 US 3 : Retourne le multiplicateur de charge actif lié aux événements
+     */
+    getLoadMultiplier() {
+        return this.currentLoadMultiplier;
+    }
+    /**
+     * 🌟 US 3 : Expose toutes les dérives thermiques actives sous forme d'objet JSON { [serverId]: valeur }
+     */
+    getAllThermalDrifts() {
+        return Object.fromEntries(this.activeThermalDrifts);
     }
     async loadScenario(scenarioId) {
         const filePath = path_1.default.join(__dirname, "../data_seed/scenarios.json");
@@ -27,15 +47,15 @@ class ScenarioService {
         this.activeScenario = found;
         this.currentTick = 0;
         this.activeThermalDrifts.clear();
-        this.pendingRepairs.clear(); // 🚨 Nettoyage anti-side-effects
+        this.pendingRepairs.clear();
+        this.currentLoadMultiplier = 1.0; // Réinitialisation de la charge
         console.log(`📖 Scénario armé : ${this.activeScenario.name}`);
         this.io.emit("scenario_started", { name: found.name, description: found.description });
     }
     async processTick() {
-        // Le métronome avance même si aucun scénario scénarisé n'est chargé
         this.currentTick++;
         console.log(`⏱️ [SCÉNARIO] Tick : ${this.currentTick}`);
-        // 🚨 NOUVEAU : GESTION DU DÉLAI DE MAINTENANCE (Compte à rebours)
+        // GESTION DU DÉLAI DE MAINTENANCE
         for (const [fanId, repair] of this.pendingRepairs.entries()) {
             repair.remainingTicks--;
             if (repair.remainingTicks > 0) {
@@ -43,14 +63,13 @@ class ScenarioService {
                 this.io.emit("maintenance_progress", { fanId, remainingTicks: repair.remainingTicks });
             }
             else {
-                // 🛠️ FIN DU DÉLAI : Le technicien termine le travail !
                 await this.prisma.fan.update({
                     where: { fan_id: fanId },
                     data: { status: 'ON', control_mode: 'AUTO', speed_percent: 20 }
                 });
                 this.clearDriftForServer(repair.serverId);
-                this.pendingRepairs.delete(fanId); // Retrait de la file d'attente
-                console.log(`✅ [MAINTENANCE SUCCÈS] Le technicien a terminé le remplacement du Ventilateur ${fanId}. Système relancé.`);
+                this.pendingRepairs.delete(fanId);
+                console.log(`✅ [MAINTENANCE SUCCÈS] Remplacement du Ventilateur ${fanId} terminé.`);
                 this.io.emit("maintenance_complete", { fanId, serverId: repair.serverId });
             }
         }
@@ -71,9 +90,11 @@ class ScenarioService {
                     break;
                 case 'LOAD_SPIKE_ALL':
                     if (event.value !== undefined) {
+                        // 🌟 Enregistre le multiplicateur (ex: 1.5 pour +50% de trafic)
+                        this.currentLoadMultiplier = event.value;
                         await this.prisma.sensor.updateMany({
                             where: { sensor_type: 'LOAD' },
-                            data: { last_value: event.value }
+                            data: { last_value: event.value * 50 } // Conservation de la valeur indicative en BDD
                         });
                     }
                     break;
@@ -85,15 +106,9 @@ class ScenarioService {
             }
         }
     }
-    /**
-     * 🚨 NOUVEAU : Enregistre une demande de réparation planifiée
-     */
     queueRepair(fanId, serverId, delayTicks) {
         this.pendingRepairs.set(fanId, { serverId, remainingTicks: delayTicks });
     }
-    /**
-     * 🚨 NOUVEAU : Vérifie si un ventilateur est déjà en cours de maintenance
-     */
     isFanUnderRepair(fanId) {
         return this.pendingRepairs.has(fanId);
     }
@@ -109,6 +124,7 @@ class ScenarioService {
         this.currentTick = 0;
         this.activeThermalDrifts.clear();
         this.pendingRepairs.clear();
+        this.currentLoadMultiplier = 1.0; // 🌟 Reset du multiplicateur au nettoyage
         console.log("♻️ Scénario nettoyé et dérives réinitialisées.");
     }
 }

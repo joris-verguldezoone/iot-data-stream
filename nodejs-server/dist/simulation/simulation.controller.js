@@ -16,10 +16,16 @@ async function simulationController(fastify) {
     const ONE_WEEK_MINUTES = 7 * 24 * 60; // 10 080 minutes (7 jours)
     /**
      * GET /internal/cadence
-     * Endpoint privé pour synchroniser le conteneur mqtt-producer
+     * Endpoint privé de synchronisation complète pour le mqtt-producer (US 1 & 3)
      */
     fastify.get('/internal/cadence', { schema: { hide: true } }, async () => {
-        return { cadenceMs: currentCadenceMs };
+        return {
+            cadenceMs: currentCadenceMs,
+            isRunning: timer !== undefined,
+            // 🌟 Appels conformes aux types de ton ScenarioService
+            loadMultiplier: fastify.scenarioService.getLoadMultiplier(),
+            thermalDrifts: fastify.scenarioService.getAllThermalDrifts()
+        };
     });
     /**
      * POST /sim/tick
@@ -83,7 +89,6 @@ async function simulationController(fastify) {
             fastify.log.info("♻️ [START-SEAL] Nettoyage préemptif des pannes et scénarios résiduels réussi.");
         }
         catch (scenarioError) {
-            // 🌟 CORRIGÉ : Utilisation du format d'objet de log structuré pour Pino/Fastify
             fastify.log.error({ err: scenarioError }, "⚠️ Impossible de clear le scenarioService au démarrage");
         }
         // US 2 : TRAITEMENT DE LA DATE DYNAMIQUE
