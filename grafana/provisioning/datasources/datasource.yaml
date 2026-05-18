@@ -1,0 +1,18 @@
+# grafana/provisioning/datasources/datasource.yaml
+apiVersion: 1
+
+datasources:
+  - name: TimescaleDB
+    type: postgres
+    access: proxy
+    # On utilise directement le nom du conteneur Docker, pas besoin d'IP ou d'URL externe !
+    url: timescaledb:5432
+    user: tsuser
+    database: tsdb
+    isDefault: true
+    jsonData:
+      sslmode: "disable"
+      encrypt: "never"
+      timescaledb: true # Activer les optimisations TimescaleDB dans Grafana
+    secureJsonData:
+      password: tspassword

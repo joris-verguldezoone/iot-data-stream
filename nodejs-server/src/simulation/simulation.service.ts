@@ -298,4 +298,9 @@ export default class SimulationService {
             })
         };
     }
+
+    public static setClock(date: Date): void {
+        this.simulatedDate = new Date(date);
+        console.log(`📅 [HORLOGE] La simulation a été calée manuellement sur le : ${this.simulatedDate.toLocaleString()}`);
+    }
 }

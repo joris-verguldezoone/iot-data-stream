@@ -15,3 +15,5 @@ npx prisma studio
 npx prisma validate
 npx prisma db seed
 npx prisma migrate reset
+
+

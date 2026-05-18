@@ -55,26 +55,33 @@ async function startSimulation() {
             console.log("🛡️  [SELF-HEALING] Valeurs des PUE corrigées avec succès !");
         }
         catch (e) { }
-        const servers = await prisma.server.findMany({
-            include: {
-                configuration: { include: { load_profile: true } },
-                sensors: true,
-                cluster: { include: { clusterLocation: true } }
-            }
-        });
-        const uniqueCities = Array.from(new Set(servers.map(s => s.cluster.clusterLocation.location || "Paris")));
-        await refreshAllCitiesWeather(uniqueCities);
-        setInterval(() => refreshAllCitiesWeather(uniqueCities), WEATHER_REFRESH_INTERVAL);
-        console.log(`🚀 Simulation lancée pour ${servers.length} serveurs.`);
-        // 🌟 INITIALISATION DE L'HORLOGE VIRTUELLE PROGRESSIVE (On part de maintenant)
+        // 🌟 SÉCURITÉ MÉTEO : On s'affranchit de la base au démarrage en chargeant toutes les villes possibles du TP
+        const ALL_POSSIBLE_CITIES = ['Paris', 'Marseille', 'Frankfurt', 'Oslo', 'Dublin'];
+        await refreshAllCitiesWeather(ALL_POSSIBLE_CITIES);
+        setInterval(() => refreshAllCitiesWeather(ALL_POSSIBLE_CITIES), WEATHER_REFRESH_INTERVAL);
+        console.log(`🚀 Simulation initialisée et parée aux changements de topologies dynamiques.`);
+        // 🌟 INITIALISATION DE L'HORLOGE VIRTUELLE PROGRESSIVE
         const simulatedDate = new Date();
         const localThermalCache = {};
-        // 🌟 FONCTION DE BOUCLE ADAPTATIVE THERMIQUE ET SÉCURISÉE
+        // 🌟 BOUCLE THERMIQUE DYNAMIQUE
         async function tick() {
             try {
                 // À chaque impulsion, on ajoute 1 heure artificielle dans le futur
                 simulatedDate.setHours(simulatedDate.getHours() + 1);
                 const currentHour = simulatedDate.getHours();
+                // 🌟 CORRECTION MAJEURE : On récupère la topologie en direct de la DB à chaque tick
+                const activeServers = await prisma.server.findMany({
+                    include: {
+                        configuration: { include: { load_profile: true } },
+                        sensors: true,
+                        cluster: { include: { clusterLocation: true } }
+                    }
+                });
+                // Si l'étudiant purge la base ou reconstruit son exercice, on attend proprement sans crasher
+                if (activeServers.length === 0) {
+                    console.log(`[${simulatedDate.toLocaleString()}] ⚠️ [PRODUCER] Base de données vide ou en cours de reconstruction... En attente du seeding.`);
+                    return;
+                }
                 // 1. Récupération de la cadence
                 try {
                     const cadenceResponse = await fetch("http://api-node:3333/internal/cadence");
@@ -94,7 +101,7 @@ async function startSimulation() {
                 }
                 catch (err) { }
                 // 3. Génération de la physique asymétrique
-                for (const server of servers) {
+                for (const server of activeServers) {
                     const city = server.cluster.clusterLocation.location || "Paris";
                     const location = city.toLowerCase();
                     let tExt = globalWeather[city] || 18.0;
@@ -158,14 +165,12 @@ async function startSimulation() {
                     };
                     client.publish(`v1/gateway/telemetry/${server.hostname}`, JSON.stringify(payload));
                 }
-                console.log(`[${simulatedDate.toLocaleString()}] 📤 Batch MQTT transmis avec succès.`);
+                console.log(`[${simulatedDate.toLocaleString()}] 📤 Batch MQTT transmis avec succès (${activeServers.length} serveurs).`);
             }
             catch (globalError) {
-                // 🚨 SI PRISMA OU LE CODE ASSOCIE COUPE, L'ERREUR EST AFFICHÉE ICI SANS TUER LE PROCESSUS
                 console.error("❌ CRASH DANS LE TICK DU PRODUCER :", globalError);
             }
             finally {
-                // RE-PLANIFICATION GARANTIE QUOI QU'IL ARRIVE
                 setTimeout(tick, dynamicTelemetryInterval);
             }
         }

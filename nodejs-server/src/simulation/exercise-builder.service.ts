@@ -94,6 +94,13 @@ export class ExerciseBuilderService {
             if (!cityConfig) throw new Error(`La ville [${block.city}] n'appartient pas au catalogue de supervision.`);
             if (!blueprint) throw new Error(`Le profil matériel [${block.configProfile}] n'existe pas.`);
 
+            // 🚨 CALCUL DU PUE IDÉAL DE CETTE ZONE EN AMONT
+            const baseInfrastructureFactor = 0.25;
+            const weatherPenalty = cityConfig.defaultWeather > 15.0 ? (cityConfig.defaultWeather - 15.0) * 0.008 : 0.0;
+            const serverHeatingPenalty = 32.0 > 40.0 ? (32.0 - 40.0) * 0.005 : 0.0; 
+
+            const theoreticalIdealPue = Number((1.0 + baseInfrastructureFactor + weatherPenalty + serverHeatingPenalty).toFixed(3));
+
             // A. Initialisation ou mise à jour de la plaque géographique
             const location = await this.prisma.clusterLocation.upsert({
                 where: { name: block.city },
@@ -114,6 +121,7 @@ export class ExerciseBuilderService {
                 const clusterConfig = await this.prisma.clusterConfiguration.create({
                     data: {
                         name: `Config_${currentClusterName}`,
+                        pue: theoreticalIdealPue, // 🌟 US 4 : Ajout du PUE d'origine garanti non-null en DB
                         master: blueprint.masters,
                         worker: blueprint.workers,
                         hardware_per_master: blueprint.hardwareMaster,
@@ -190,13 +198,6 @@ export class ExerciseBuilderService {
                     }
                 }
             }
-
-            // 🚨 CALCUL DU PUE IDÉAL DE CETTE ZONE
-            const baseInfrastructureFactor = 0.25;
-            const weatherPenalty = cityConfig.defaultWeather > 15.0 ? (cityConfig.defaultWeather - 15.0) * 0.008 : 0.0;
-            const serverHeatingPenalty = 32.0 > 40.0 ? (32.0 - 40.0) * 0.005 : 0.0; 
-
-            const theoreticalIdealPue = Number((1.0 + baseInfrastructureFactor + weatherPenalty + serverHeatingPenalty).toFixed(3));
 
             pueReports.push({
                 city: block.city,

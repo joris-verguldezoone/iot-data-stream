@@ -250,5 +250,9 @@ class SimulationService {
             })
         };
     }
+    static setClock(date) {
+        this.simulatedDate = new Date(date);
+        console.log(`📅 [HORLOGE] La simulation a été calée manuellement sur le : ${this.simulatedDate.toLocaleString()}`);
+    }
 }
 exports.default = SimulationService;

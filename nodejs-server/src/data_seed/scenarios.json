@@ -22,5 +22,39 @@
     "events": [
       { "tick": 5, "type": "THERMAL_DRIFT_SERVER", "targetId": 2, "value": 1.5 }
     ]
+  },
+  {
+    "id": "sc_cluster_high",
+    "name": "🔥 [HIGH-POWER] Stress-Test IA & Supercalculateur",
+    "description": "Simulation d'un entraînement massif de LLM (Grand Modèle de Langage) sur le cluster High-Power. La charge informatique sature instantanément à 95%, mettant à l'épreuve l'inertie des gros CPU.",
+    "events": [
+      { "tick": 5, "type": "LOAD_SPIKE_ALL", "value": 95 }
+    ]
+  },
+  {
+    "id": "sc_cluster_medium",
+    "name": "⚡ [MEDIUM-CLUSTER] Incident Électrique Alterné",
+    "description": "Une anomalie sur l'onduleur du Cluster Medium provoque des micro-coupures de charge suivies d'une surchauffe vicieuse (dérive thermique +2.0) sur les nœuds intermédiaires.",                                                                                                                                                                                                                                                                                                                                                                                               
+    "events": [
+      { "tick": 8, "type": "THERMAL_DRIFT_SERVER", "targetId": 3, "value": 2.0 }
+    ]
+  },
+  {
+    "id": "sc_cluster_small",
+    "name": "📡 [SMALL-EDGE] Coup de Chaleur sur Micro-Closet",
+    "description": "Scénario critique pour les petits routeurs / serveurs Edge en armoire de rue (Small). Le système de ventilation principal lâche au tick 12. Sans réaction rapide de l'élève pour brider la charge, le crash thermique est garanti.",
+    "events": [
+      { "tick": 12, "type": "CRASH_FAN", "targetId": 5 }
+    ]
+  },
+  {
+    "id": "sc_euro_cross_topology",
+    "name": "🌍 [TOPOLOGIE] Le Grand Chelem Européen (Multi-Villes)",
+    "description": "Scénario ultime configuré pour la topologie d'examen : Le Big Cluster de Paris subit un pic de charge (90%), le Medium de Marseille fait face à une dérive thermique (+2.5) liée à la chaleur du Sud, tandis que le Small d'Oslo subit une panne de ventilateur.",
+    "events": [
+      { "tick": 4, "type": "LOAD_SPIKE_ALL", "value": 90 },
+      { "tick": 8, "type": "THERMAL_DRIFT_SERVER", "targetId": 3, "value": 2.5 },
+      { "tick": 12, "type": "CRASH_FAN", "targetId": 5 }
+    ]
   }
 ]

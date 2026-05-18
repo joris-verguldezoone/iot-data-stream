@@ -20,25 +20,36 @@ client.on('message', async (topic, message) => {
             return; // Si le format ne correspond pas, on évite le crash
         }
         // 🌟 On boucle sur les capteurs du tableau
-        // 🌟 On boucle sur les capteurs du tableau
         for (const sensor of payload.sensors) {
             const sensorId = Number(sensor.id);
             const sensorValue = parseFloat(sensor.value);
             if (isNaN(sensorId) || isNaN(sensorValue))
                 continue;
-            console.log(`➔ [DB TRY] Tentative d'insertion pour le capteur ${sensorId} (Valeur: ${sensorValue})...`);
-            // Insertion de chaque métrique
-            await prisma_1.prisma.sensorData.create({
-                data: { sensor_id: sensorId, value: sensorValue, time: virtualTime }
-            });
-            console.log(`  ✔ [DB SUCCESS] Capteur ${sensorId} inséré avec succès !`);
-            await prisma_1.prisma.sensor.update({
-                where: { sensor_id: sensorId },
-                data: { last_value: sensorValue }
-            });
+            // 🌟 PROTECTION CHIRURGICALE POUR LES RESETS DE TOPOLOGIE
+            try {
+                console.log(`➔ [DB TRY] Tentative d'insertion pour le capteur ${sensorId} (Valeur: ${sensorValue})...`);
+                // Insertion de chaque métrique
+                await prisma_1.prisma.sensorData.create({
+                    data: { sensor_id: sensorId, value: sensorValue, time: virtualTime }
+                });
+                console.log(`  ✔ [DB SUCCESS] Capteur ${sensorId} inséré avec succès !`);
+                await prisma_1.prisma.sensor.update({
+                    where: { sensor_id: sensorId },
+                    data: { last_value: sensorValue }
+                });
+            }
+            catch (dbError) {
+                // Si c'est l'erreur Prisma P2003 (Clé étrangère manquante), c'est un capteur fantôme
+                if (dbError.code === 'P2003') {
+                    console.warn(`⚠️ [MÉMOIRE] Capteur obsolète ignoré (ID: ${sensorId}). La topologie a été reconstruite.`);
+                    continue; // 🌟 TRÈS IMPORTANT : On passe au capteur suivant de la liste sans bloquer le reste !
+                }
+                // Si c'est une autre erreur de base de données, on la logue pour ne pas couper le flux
+                console.error(`❌ Erreur d'écriture pour le capteur ${sensorId} :`, dbError.message);
+            }
         }
     }
     catch (err) {
-        console.error('❌ Erreur d\'ingestion du batch MQTT :', err);
+        console.error('❌ Erreur générale d\'analyse du batch MQTT :', err);
     }
 });

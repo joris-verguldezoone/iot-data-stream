@@ -1,39 +1,3 @@
-| Profile             |              Matériel (ex) | Rôles (per 20)        | IT per server (W) | Fan W (per server) | Rack / cluster IT (kW) | Infra overhead (kW) |      Env factor |        Ex PUE example |
-| ------------------- | -------------------------: | --------------------- | ----------------: | -----------------: | ---------------------: | ------------------: | --------------: | --------------------: |
-| **G-A (HPC)**       |      2×Xeon, 1×A100, 512GB | 4 masters, 16 workers |         1200–1800 |              20–40 |               24–36 kW |            10–14 kW | 1.05 (optimisé) | (30+12)/30 ≈ **1.40** |
-| **G-B (Hybrid)**    |      2×EPYC, 1×V100, 384GB | 3 masters, 17 workers |          800–1200 |              15–30 |               16–24 kW |             8–12 kW |            1.10 | (20+10)/20 = **1.50** |
-| **G-C (Low-power)** | 2×CPU dense, no GPU, 256GB | 2 masters, 18 workers |           400–600 |              10–20 |                8–12 kW |              6–9 kW |            1.15 |  (10+7)/10 = **1.70** |
-
-
-| Profile             |               Matériel | Rôles (per 10)       | IT per server (W) | Fan W | IT cluster (kW) | Infra overhead (kW) | Env factor |               Ex PUE |
-| ------------------- | ---------------------: | -------------------- | ----------------: | ----: | --------------: | ------------------: | ---------: | -------------------: |
-| **M-A (GPU)**       |  2×EPYC + 1×RTX, 256GB | 2 masters, 8 workers |           600–900 | 15–25 |          6–9 kW |          3.5–5.5 kW |        1.1 | (8+4.5)/8 ≈ **1.56** |
-| **M-B (CPU-heavy)** |          2×Xeon, 128GB | 2 masters, 8 workers |           300–500 |  8–15 |          3–5 kW |            2.5–4 kW |        1.2 |   (4+3)/4 = **1.75** |
-| **M-C (Edge type)** | i9 + small accel, 64GB | 1 master, 9 workers  |           150–300 |  5–10 |        1.5–3 kW |          1.5–2.5 kW |       1.25 |   (2+2)/2 = **2.00** |
-
-
-| Profile               |              Matériel | Rôles (per 5)       | IT per server (W) | Fan W | IT cluster (kW) | Infra overhead (kW) | Env factor |                   Ex PUE |
-| --------------------- | --------------------: | ------------------- | ----------------: | ----: | --------------: | ------------------: | ---------: | -----------------------: |
-| **S-A (Mini GPU)**    |     i9 + 1×RTX, 128GB | 1 master, 4 workers |           300–500 |  8–15 |      1.5–2.5 kW |          1.2–1.8 kW |        1.2 |     (2+1.5)/2 = **1.75** |
-| **S-B (Small CPU)**   | i7 / Xeon small, 64GB | 1 master, 4 workers |           100–200 |   5–8 |        0.5–1 kW |          0.8–1.2 kW |        1.3 |   (0.8+1)/0.8 = **2.25** |
-| **S-C (Edge closet)** | NUC / low-power, 32GB | 1 master, 4 workers |             30–80 |   2–5 |     0.15–0.4 kW |          0.4–0.8 kW |       1.35 | (0.3+0.6)/0.3 = **3.00** |
-
-
-
-
-
-
-
-
-MAJ 
-
-
-
-
-
-
-
-
 | Profile         | Matériel (ex)              | Rôles (per 20)        | IT per server (W) | Fan W (per server) | Rack / cluster IT (kW) | Infra overhead (kW) | Env factor      | Ex PUE example    | Master HW              | Master IT (W) | Worker IT (W) |
 | --------------- | -------------------------- | --------------------- | ----------------- | ------------------ | ---------------------- | ------------------- | --------------- | ----------------- | ---------------------- | ------------- | ------------- |
 | G-A (HPC)       | 2×Xeon, 1×A100, 512GB      | 4 masters, 16 workers | 1200–1800         | 20–40              | 24–36 kW               | 10–14 kW            | 1.05 (optimisé) | (30+12)/30 ≈ 1.40 | 2×Xeon + 1×A100, 512GB | 1700          | 1450          |
@@ -55,11 +19,6 @@ MAJ
 | S-C (Edge closet) | NUC / low-power, 32GB | 1 master, 4 workers | 30–80             | 2–5   | 0.15–0.4 kW     | 0.4–0.8 kW          | 1.35       | (0.3+0.6)/0.3 = 3.00 | NUC / low-power, 32GB | 70            | 45            |
 
 
-
-
-mise a jour -----------------------6
-
-💡 Calculs des colonnes
 1. IT Cluster (kW)
 
 Puissance totale consommée par tous les serveurs (Masters + Workers) y compris les ventilateurs :
@@ -156,116 +115,27 @@ Chaque serveur peut tirer sa consommation dans la plage définie par le profile 
 
 L’overhead et la PUE peuvent varier légèrement selon les tirages pour simuler la variabilité réelle.
 
+# Exemple de calcul du coût énergétique d’un ventilateur de 40 W
 
-# Exemple de calcul de coup pour un fan a 40 W 
-Conversion kW 40/1000  = 0.04
-0,04 x 24  = 0.96 Kwh consommation par jour 
-0.96* 0.2 = 0.192€ / jours
-0.192 * 30 = 5.76€ /par mois
+## Conversion de la puissance en kW
 
+40 W ÷ 1000 = **0,04 kW**
 
-IT per server (W) ne sert a rien, a enlever, cette valeur sera calculé a postériori
+## Consommation par jour
 
+0,04 × 24 = **0,96 kWh / jour**
 
+## Coût journalier
 
+0,96 × 0,20 € = **0,192 € / jour**
 
+## Coût mensuel
 
-// =======================
-// LOCATIONS (physiques)
-// =======================
-Table Location {
-  location_id       int [pk, increment]
-  name              varchar(100)
-  country           varchar(100)
-  city              varchar(100)
-  created_at        datetime
-}
+0,192 × 30 = **5,76 € / mois**
 
-// =======================
-// CLUSTER CONFIGURATIONS (modèles)
-// =======================
-Table ClusterConfiguration {
-  config_id               int [pk, increment]
-  name                    varchar(100)      // e.g. BIG_CLUSTER_HIGH_POWER
-  cluster_size            varchar(50)       // BIG, MEDIUM, SMALL
-  masters                 int
-  workers                 int
-  consomation_master_min   int
-  consomation_master_max   int
-  consomation_worker_min   int
-  consomation_worker_max   int
-  hardware_master          varchar(255)
-  hardware_worker          varchar(255)
-  env_factor               float
-  PUE                      float
-  fan_conf_id              int [ref: > FanConfiguration.fan_conf_id]  // type de ventilateur associé par défaut
-}
+---
 
-// =======================
-// CLUSTERS INSTANCES (déploiements concrets)
-// =======================
-Table Cluster {
-  cluster_id          int [pk, increment]
-  config_id           int [ref: > ClusterConfiguration.config_id]
-  name                varchar(100)
-  location_id         int [ref: > Location.location_id]
-  deployment_status   varchar(50)      // ACTIVE, MAINTENANCE, OFFLINE...
-  created_at          datetime
-}
+# Remarque
 
-// =======================
-// SERVERS
-// =======================
-Table Server {
-  server_id           int [pk, increment]
-  cluster_id          int [ref: > Cluster.cluster_id]
-  role                varchar(20)      // MASTER, WORKER
-  consommation         int
-  hardware_description varchar(255)
-  status              varchar(50)      // ON, OFF, DEGRADED
-  created_at          datetime
-}
-
-// =======================
-// FAN CONFIGS (modèles)
-// =======================
-Table FanConfiguration {
-  fan_conf_id          int [pk, increment]
-  name                 varchar(100)
-  consommation_min      int
-  consommation_max      int
-  created_at           datetime
-}
-
-// =======================
-// FANS (instances)
-// =======================
-Table Fan {
-  fan_id               int [pk, increment]
-  cluster_id           int [ref: > Cluster.cluster_id]
-  fan_conf_id          int [ref: > FanConfiguration.fan_conf_id]
-  control_mode         varchar(50)      // MANUAL, AUTO
-  status               varchar(50)      // ON, OFF
-  speed_percent        int
-  created_at           datetime
-}
-
-// =======================
-// SENSORS + DATA
-// =======================
-Table Sensor {
-  sensor_id            int [pk, increment]
-  cluster_id           int [ref: > Cluster.cluster_id]
-  server_id            int [ref: > Server.server_id]
-  sensor_type          varchar(50)      // TEMPERATURE, HUMIDITY, POWER, etc.
-  unit                 varchar(10)      // °C, %, W, m³/s...
-  last_value           float
-  created_at           datetime
-}
-
-Table SensorData {
-  data_id              int [pk, increment]
-  sensor_id            int [ref: > Sensor.sensor_id]
-  timestamp            datetime
-  value                float
-}
+Le champ `IT per server (W)` ne sert plus et doit être supprimé.  
+Cette valeur sera calculée a posteriori à partir des données réelles des serveurs.

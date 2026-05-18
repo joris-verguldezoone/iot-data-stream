@@ -55,10 +55,14 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - timescaledb
+    # 🚨 LA CORRECTION EST ICI : On donne l'ordre de lancer le serveur d'API après le script de build
+    # (Ajuste "dist/index.js" si ton fichier d'entrée s'appelle main.js, app.js ou server.js)
+    command: ["node", "dist/server.js"]
     environment:
       - DATABASE_URL=postgresql://tsuser:tspassword@timescaledb:5432/tsdb
       - PORT=3333
       - DEBUG=prisma:config,prisma:client:setup
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
     ports:
       - "3333:3333"
 
@@ -77,11 +81,12 @@ services:
   mqtt-consumer:
     container_name: mqtt-consumer
     build: ./nodejs-server
-    command: ["node", "dist/src/mqtt/stateless-consumer.js"]
+    command: ["node", "dist/mqtt/stateless-consumer.js"]
     # command: ["node", "dist/src/mqtt/statefull-consumer.js"]
     depends_on:
       - mosquitto
       - timescaledb
+      - api-node
     environment:
       - DATABASE_URL=postgresql://tsuser:tspassword@timescaledb:5432/tsdb
       - MQTT_BROKER_URL=mqtt://mosquitto:1883
