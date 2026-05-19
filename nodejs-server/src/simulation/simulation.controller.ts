@@ -45,7 +45,7 @@ export default async function simulationController(fastify: FastifyInstance) {
             querystring: {
                 type: 'object',
                 properties: {
-                    persist: { type: 'boolean', default: true },
+                    persist: { type: 'boolean', default: false },
                     cadence: { type: 'number', enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 5 },
                     tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h' },
                     startDate: { type: 'string' }
