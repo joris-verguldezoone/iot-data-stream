@@ -1,40 +1,48 @@
-Voici le fichier `README.md` complet, structuré, professionnel et parfaitement calibré pour l'exercice sur **Marseille**. Il intègre le contexte de l'infrastructure, le générateur de topologie de l'interface, la création du microservice d'ingestion MQTT ("juste-ventilateurs") et les attendus précis pour la soutenance des étudiants.
+Voici la version définitive du fichier **`README.md`** rédigée sous la forme d'un **Getting Started** technique complet.
+
+Il intègre tes consignes exactes : l'utilisation du générateur graphique pour **Marseille**, l'obligation pour les étudiants de **développer leur propre consommateur MQTT**, l'évaluation via la crise de Marseille, et les critères de notation pour leur **soutenance**.
 
 ---
 
-# 🏢 README : Sujet de TP / Projet Final – Jumeau Numérique & Régulation IA de l'Infrastructure de Marseille
+# 🤖 Getting Started : Projet "Juste des Ventilateurs" – Supervision IA & Flux IoT Temps Réel
 
-## 📖 1. Introduction & Contexte du Projet
+## 📖 1. Présentation de la Mission
+
+> « *When things are getting hot and the sensors are going crazy, in a system controlling only fans, our AI gets turned on to cool things down and decrease pressure.* »
 
 Dans la plupart des datacenters modernes, la question n’est plus seulement de “faire tourner les serveurs”, mais de maintenir les machines dans une zone de fonctionnement sûre tout en contenant la facture énergétique. Au quotidien, des équipes d’ingénieurs data et d’experts IA doivent jongler entre alertes de température, tickets d’incident et objectifs de réduction de consommation électrique, avec des infrastructures déjà en production et peu de marge pour expérimenter.
 
-Dans ce projet, vous travaillez sur un environnement contrôlé qui reproduit un parc de machines et ses contraintes thermiques. Le simulateur open source **`jumeaux-chauds`** joue le rôle de jumeau numérique d’un datacenter : télémétrie temps réel via MQTT, API de pilotage des ventilateurs, mécanismes d’arrêt automatique pour protéger les machines, scénarios de charge et de stress variés. Vous n’avez pas à gérer la couche matérielle ou réseau, mais à exploiter ce jumeau comme le feraient des ingénieurs en production.
+Votre équipe d'ingénieurs (2 à 4 personnes) est chargée de la fiabilité thermique d’un datacenter situé à **Marseille**. L’infrastructure est équipée de capteurs de température et de ventilateurs contrôlables à distance. Le pilotage actuel reste fondé sur des règles statiques, provoquant des épisodes de surchauffe et des arrêts thermiques de sécurité (`shutdown`) lors des pics de charge.
 
-Quand les choses se réchauffent et que les capteurs s’agitent, dans un système qui contrôle juste des ventilateurs, notre IA est activée pour refroidir les choses et faire baisser la pression.
-
----
-
-## 🗺️ 2. Mise en Situation Professionnelle
-
-Vous faites partie d’une petite équipe de 2 à 4 ingénieurs (data, IA, ML/MLOps) en charge de la fiabilité thermique d’un datacenter de taille moyenne basé à **Marseille**. L’infrastructure est équipée de capteurs de température et de ventilateurs contrôlables à distance, exposant des flux de télémétrie et des APIs. Le pilotage actuel reste fondé sur des règles statiques (seuils fixes, modes ventilateur prédéfinis), provoquant des épisodes de surchauffe et quelques arrêts thermiques de sécurité (`shutdown`) lors des pics de charge.
-
-Pour expérimenter sans risque, vous utilisez le jumeau numérique **`jumeaux-chauds`** pour piloter le cluster de **Marseille** et y injecter un scénario de stress caniculaire et de panne matérielle.
-
-### Enjeux clés :
-
-* **Sécurité thermique** : Ne jamais tolérer un shutdown par dépassement de critère de température ($105^\circ\text{C}$).
-* **Efficacité énergétique** : Garder les machines assez froides avec le **minimum** d'énergie compatible avec la sûreté.
+Pour expérimenter sans risque, vous allez concevoir un microservice autonome en Python baptisé **`juste-ventilateurs`** connecté à un jumeau numérique. Votre but : **recréer un pipeline complet d'ingestion IoT, insérer des modèles de Machine Learning dans une boucle de décision temps réel, et valider votre efficacité.**
 
 ---
 
-## 🏗️ 3. Étape 1 : Initialisation de la Topologie via le Générateur
+## 🚀 2. Étape 1 : Lancement du Jumeau Numérique
 
-Avant d'exécuter vos modèles, vous devez initialiser l'infrastructure de l'exercice. Utilisez le **Générateur de Topologie** présent sur l'interface graphique du simulateur (ou l'endpoint `POST /build-exercise`) configuré obligatoirement de la manière suivante :
+Démarrez l'infrastructure complète du simulateur de datacenter (moteur physique, broker de messages, base de données et stack d'observabilité) à l'aide de Docker Compose :
+
+```bash
+docker compose up -d --build
+
+```
+
+### 🌍 Points d'accès de votre environnement :
+
+* **API du Moteur Physique** : `http://localhost:3333` (Documentation Swagger : `/documentation`)
+* **Broker MQTT (Mosquitto)** : `localhost:1883`
+* **Observabilité Graphique (Grafana)** : `http://localhost:3000`
+
+---
+
+## 🏗️ 3. Étape 2 : Configuration Graphique de la Topologie
+
+Avant d'initier la télémétrie, vous devez matérialiser les équipements industriels en utilisant le **Générateur de Topologie** disponible sur l'interface de l'application :
 
 ```text
  🏗️ Générateur de Topologie
    📍 Ville       :  Marseille
-   🖥️ Profil      :  MEDIUM GPU  (ou BIG HIGH POWER / SMALL EDGE CLOSET)
+   🖥️ Profil      :  MEDIUM GPU 
    📦 Clusters    :  [ 1 ]
    
                      [ ➕ Ajouter un cluster ]  
@@ -42,65 +50,97 @@ Avant d'exécuter vos modèles, vous devez initialiser l'infrastructure de l'exe
                      [ 🚀 Lancer le Build ]
 
 ```
-Vous pouvez vous rendre sur l'endpoint http://localhost:3333/create pour accéder a un forumlaire de building
-* **📍 Ville** : `Marseille` (Impose le climat méditerranéen chaud et le coût énergétique local).
-* **🖥️ Profil** : `MEDIUM GPU` (Déploie un cluster de serveurs de calcul avec cartes graphiques accélérées, équipé de ventilateurs physiques régulables).
-* Cliquez sur **🚀 Lancer le Build** : Cela va purger l'historique et instancier votre topologie propre en base de données.
+
+* **📍 Ville** : `Marseille` (Impose le climat local et les coûts électriques locaux).
+* **🖥️ Profil** : `MEDIUM GPU` (Instancie des clusters de serveurs de calcul intensif IA équipés de ventilateurs physiques régulables).
+* Cliquez sur **🚀 Lancer le Build** : Cette action purge les anciennes tables et configure une infrastructure propre.
 
 ---
 
-## 🧪 4. Le Scénario de Référence : La Crise de Marseille
+## 📥 4. Étape 3 : Spécifications de votre Consommateur (`ingest/`)
 
-Une fois votre topologie construite, l'évaluation de vos algorithmes se fera en déclenchant la route de crise dédiée :
+Votre premier livrable consiste à **développer de zéro un script consommateur MQTT (Subscriber)** capable de lire la télémétrie en temps réel et de l'historiser pour l'apprentissage de vos modèles.
 
-```http
-POST http://localhost:3333/sim/scenarios/marseille?cadence=1&persist=true
+### 🛰️ Structure des données IoT émises
+
+Votre script doit se connecter au broker `localhost:1883` et s'abonner au topic : **`v1/gateway/telemetry/#`**.
+Chaque payload reçu est au format JSON et structuré de cette manière :
+
+```json
+{
+  "timestamp": "2026-05-19T13:27:39.000Z",
+  "hostname": "marseille-marseille-zone-01-worker-01",
+  "environment": { "external_city": "Marseille", "external_temp": "24.0", "ambient_dc_temp": "22.0" },
+  "current_fan_speed": 20.00,
+  "load_percent": "40.00",
+  "sensors": [
+    { "id": 1, "type": "LOAD", "value": "40.00", "unit": "%" },
+    { "id": 2, "type": "CPU_TEMP", "value": "54.26", "unit": "°C" },
+    { "id": 3, "type": "TOTAL_POWER", "value": "245.00", "unit": "W" },
+    { "id": 4, "type": "FAN_SPEED_1", "value": "20.00", "unit": "%" }
+  ]
+}
 
 ```
 
-Le scénario applique une gradation de crise temporelle sur votre infrastructure :
+### 💾 Objectif de l'ingestion :
 
-1. **Tick 52 (Mercredi 04h00)** : Une surcharge applicative frappe Marseille (La charge de calcul nominale de base est **multipliée par 2**).
-2. **Tick 56 (Mercredi 08h00)** : Une canicule s'abat sur la ville, provoquant une dérive thermique lourde de **$+15^\circ\text{C}$** sur l'environnement du serveur `worker-01`.
-3. **Tick 60 (Mercredi 12h00)** : Le ventilateur principal du serveur en surchauffe subit une avarie mécanique totale et s'arrête (`CRASH_FAN` bloqué à 0%).
-
-### Comportement par défaut (Sans votre IA) :
-
-La température du CPU s'emballe verticalement et vient saturer sur la ligne rouge critique des **$105^\circ\text{C}$**.
+Extrayez ces métriques en continu, calculez des features temporelles (dérivées $\Delta T$ à 15s/30s, moyennes glissantes) et sauvegardez-les dans des fichiers structurés (`Apache Parquet` ou `CSV`) ou dans votre propre base de données afin de constituer un jeu de données reproductible.
 
 ---
 
-## 🛠️ 5. Travaux à Réaliser (Votre Roadmap)
+## ⚡ 5. Étape 4 : Développement du Contrôleur Intelligent
 
-Vous devez concevoir et livrer un dépôt nommé **`juste-ventilateurs`**, exécutable côte à côte avec `jumeaux-chauds` sous la forme d'un microservice conteneurisé.
+Votre application `juste-ventilateurs` doit fermer la boucle de décision en temps réel en implémentant deux fonctionnalités majeures :
 
-### Phase 1 : Prise en main, Ingestion et Ingestion Temps Réel (Votre Consommateur)
+### 🎛️ 1. Régulation Dynamique de la Vitesse (Régime Nominal)
 
-* Développer un **Subscriber MQTT autonome** (en Python) qui écoute le topic `v1/gateway/telemetry/#`.
-* Parser et normaliser les payloads reçus.
-* Alimenter une base de données de séries temporelles (TimescaleDB) ou exporter les données au format Parquet/CSV structuré afin de constituer vos datasets pour l'apprentissage (`train`/`validation`/`test`).
+Entraînez un modèle (ou concevez une politique à score) évaluant le meilleur compromis **Sûreté Thermique / Sobriété Énergétique**. Votre script doit appliquer les nouvelles consignes de vitesse sur le matériel en appelant l'API officielle :
 
-### Phase 2 : Feature Engineering
-
-* Construire des features glissantes : Températures actuelles, dérivées temporelles ($\Delta T$ à 5s, 15s, 30s), rolling means de la charge informatique, marge avant le shutdown.
-* Calculer des métriques énergétiques : Puissance instantanée consommée ($W$) et coût cumulé.
-
-### Phase 3 : Modèle d'Anticipation de Pannes
-
-* Entraîner un modèle de classification (ex: *Random Forest, XGBoost ou LightGBM*) pour prédire à un horizon de 60 secondes si une machine va basculer en mode dégradé ou en shutdown.
-* **Baseline obligatoire** : Comparer votre modèle avec un système heuristique à seuil fixe simple.
-
-### Phase 4 : Contrôleur et Politique de Régulation des Ventilateurs
-
-* Concevoir l'algorithme d'actionneur. Vous devez passer les machines en mode manuel et ajuster dynamiquement la vitesse en appelant la route REST native du jumeau :
 ```http
 PATCH http://localhost:3333/fans/{id_du_ventilateur}
 Body: { "speed_percent": <vitesse_calculee> }
 
 ```
 
+### 🔧 2. Détection d'Anomalie et Maintenance (Régime de Crise)
 
-* **Gestion de la panne mécanique (Tick 60)** : Votre script doit détecter l'anomalie (Température $> 78^\circ\text{C}$ alors que la ventilation demandée est déjà au maximum). Il doit alors déclencher automatiquement l'envoi de l'équipe technique virtuelle via l'API :
+Si un ventilateur subit une avarie physique, modifier sa vitesse (`speed_percent`) n'aura aucun effet. Votre agent doit détecter cette situation (Exemple : Température $>78^\circ\text{C}$ alors que la ventilation demandée est déjà au maximum). Il doit alors envoyer une équipe de techniciens virtuels via la route :
+
 ```http
 POST http://localhost:3333/sim/maintenance/repair
-Body: { "fanId": <id_du_composant_en_panne> }
+Body: { "fanId": <id_du_ventilateur_en_panne> }
+
+```
+
+---
+
+## 🔥 6. Scénario d'Évaluation : La Crise de Marseille
+
+L'évaluation de votre code se fera en direct en déclenchant la route de stress officielle :
+
+```http
+POST http://localhost:3333/sim/scenarios/marseille?cadence=1&persist=true
+
+```
+
+### Chronologie des événements :
+
+* **Tick 52** : **Pic Informatique** – La charge CPU de calcul est **multipliée par 2** instantanément.
+* **Tick 56** : **Canicule** – Une dérive thermique lourde de **$+15^\circ\text{C}$** frappe le serveur `worker-01`.
+* **Tick 60** : **Avarie Ventilateur** – Le refroidissement mécanique de la machine lâche et tombe à 0% d'efficacité (`CRASH_FAN`).
+
+---
+
+## 📂 7. Structure de Dépôt Recommandée
+
+```text
+juste-ventilateurs/
+├── ingest/                 # Votre consommateur MQTT et pipeline d'historisation
+├── features/               # Pipeline de feature engineering (calcul des dérivées)
+├── models/
+│   ├── failure_prediction/ # Modèle de prédiction des incidents futurs (ML)
+│   └── fan_control/        # Votre contrôleur de régulation de vitesse
+├── data/                   # Datasets d'entraînement versionnés
+├── docker-compose.yml      # Containerisation de votre microservice
+└── requirements.txt        # Dépendances Python (requests, paho-mqtt, scikit-learn...)
