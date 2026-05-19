@@ -9,42 +9,128 @@ export default async function simulationController(fastify: FastifyInstance) {
     let timer: NodeJS.Timeout | undefined = undefined;
     let currentCadenceMs = 5000; // Variable globale partagée (5s par défaut)
     
-    // 🌟 SUIVI TEMPOREL POUR L'AUTO-STOP
+    // SUIVI TEMPOREL POUR L'AUTO-STOP
     let virtualMinutesElapsed = 0;
     const ONE_WEEK_MINUTES = 7 * 24 * 60; // 10 080 minutes (7 jours)
 
+    function stopExistingSimulation() {
+    if (timer) {
+        clearInterval(timer);
+        timer = undefined;
+    }
+}
+
     /**
      * GET /internal/cadence
-     * Endpoint privé de synchronisation complète pour le mqtt-producer (US 1 & 3)
+     * Endpoint privé de synchronisation complète pour le mqtt-producer
      */
     fastify.get('/internal/cadence', { schema: { hide: true } }, async () => {
         return { 
             cadenceMs: currentCadenceMs,
             isRunning: timer !== undefined,
-            // 🌟 Appels conformes aux types de ton ScenarioService
             loadMultiplier: fastify.scenarioService.getLoadMultiplier(),
-            thermalDrifts: fastify.scenarioService.getAllThermalDrifts()
+            thermalDrifts: fastify.scenarioService.getAllThermalDrifts(),
+            currentSimulatedDate: SimulationService.getClock().toISOString()
+        };
+    });
+
+    /**
+     * POST /sim/scenarios/marseille
+     * Lance le scénario Marseille avec cadence, durée de ticks et date de départ ajustables
+     */
+    fastify.post<{ Querystring: { persist?: boolean; cadence?: number; tickDuration?: string; startDate?: string } }>('/sim/scenarios/marseille', {
+        schema: { 
+            tags: ['Simulation'], 
+            description: 'Arme le scénario de Marseille à horaire fixe (Lundi par défaut) et démarre la boucle à vitesse configurable',
+            querystring: {
+                type: 'object',
+                properties: {
+                    persist: { type: 'boolean', default: true },
+                    cadence: { type: 'number', enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 5 },
+                    tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h' },
+                    startDate: { type: 'string' }
+                }
+            }
+        }
+    }, async (req, reply) => {
+        const persist = req.query.persist !== false; 
+        const cadenceSeconds = req.query.cadence ?? 5;
+        const tickDuration = req.query.tickDuration ?? '1h';
+
+        if (timer) {
+            clearInterval(timer);
+            timer = undefined;
+        }
+
+        // Horaire fixe par défaut au Lundi à 00h00 pile
+        let startDate = new Date("2026-05-18T00:00:00.000Z"); 
+        if (req.query.startDate) {
+            const parsedDate = new Date(req.query.startDate);
+            if (!isNaN(parsedDate.getTime())) {
+                startDate = parsedDate;
+            }
+        }
+        SimulationService.setClock(startDate);
+
+        try {
+            await fastify.scenarioService.loadScenario('sc_marseille_gpu_melt');
+        } catch (err) {
+            return reply.status(404).send({ 
+                status: 'error', 
+                message: "Le scénario [sc_marseille_gpu_melt] est introuvable. Vérifie ton fichier scenarios.json." 
+            });
+        }
+
+        virtualMinutesElapsed = 0;
+        currentCadenceMs = cadenceSeconds * 1000;
+
+        let minutesPerTick = 60;
+        if (tickDuration !== '1h') {
+            minutesPerTick = parseInt(tickDuration, 10) || 60;
+        }
+
+        timer = setInterval(async () => {
+            try {
+                const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
+                await service.simulateTick({ persist, tickDuration });
+                
+                virtualMinutesElapsed += minutesPerTick;
+                
+                if (virtualMinutesElapsed >= ONE_WEEK_MINUTES) {
+                    clearInterval(timer);
+                    timer = undefined; 
+                    fastify.io.emit('simulation_auto_stopped', { 
+                        reason: '1_week_completed',
+                        message: "🏁 Fin du benchmark Marseille : 1 semaine complète s'est écoulée !"
+                    });
+                }
+            } catch (err) {
+                fastify.log.error(err);
+            }
+        }, currentCadenceMs);
+
+        return { 
+            status: "success", 
+            message: "🔥 Scénario Marseille enclenché !", 
+            setup: {
+                cadence: `${cadenceSeconds}s par tick`,
+                virtualTimePerTick: tickDuration,
+                startedAt: startDate.toISOString()
+            }
         };
     });
 
     /**
      * POST /sim/tick
-     * Exécute un pas de temps manuel avec durée de tick ajustable
      */
     fastify.post<{ Querystring: { persist?: boolean; tickDuration?: string } }>('/sim/tick', {
         schema: { 
             tags: ['Simulation'], 
-            description: 'Exécute un pas de temps manuel de la physique du datacenter',
             querystring: {
                 type: 'object',
                 properties: {
-                    persist: { type: 'boolean', default: false, description: 'Si true, enregistre la télémétrie' },
-                    tickDuration: {
-                        type: 'string',
-                        enum: ['5', '10', '15', '20', '25', '30', '1h'],
-                        default: '1h',
-                        description: 'Durée virtuelle représentée par ce pas de temps'
-                    }
+                    persist: { type: 'boolean', default: false },
+                    tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h' }
                 }
             }
         }
@@ -59,51 +145,48 @@ export default async function simulationController(fastify: FastifyInstance) {
 
     /**
      * POST /sim/start
-     * Démarre la simulation automatique (S'arrête TOUTE SEULE après 1 semaine virtuelle)
      */
     fastify.post<{ Querystring: { persist?: boolean; cadence?: number; tickDuration?: string; startDate?: string } }>('/sim/start', {
         schema: { 
             tags: ['Simulation'], 
-            description: 'Démarre la boucle de simulation automatique (Idempotente : purge les scénarios et pannes en cours)',
             querystring: {
                 type: 'object',
                 properties: {
-                    persist: { type: 'boolean', default: false, description: 'Si true, enregistre les métriques dans TimescaleDB' },
-                    cadence: { type: 'number', enum: [3, 4, 5, 6, 7, 8, 9, 10], default: 5, description: 'Fréquence de rafraîchissement en secondes' },
-                    tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h', description: 'Durée virtuelle d\'un tick' },
-                    startDate: { type: 'string', description: 'Date de début personnalisée (US 2)' }
+                    persist: { type: 'boolean', default: false },
+                    cadence: { type: 'number', enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 5 },
+                    tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h' },
+                    startDate: { type: 'string' }
                 }
             }
         }
     }, async (req) => {
+        stopExistingSimulation();
+        virtualMinutesElapsed = 0;
         const persist = req.query.persist === true;
         const cadenceSeconds = req.query.cadence ?? 5;
         const tickDuration = req.query.tickDuration ?? '1h';
-        const startDateParam = req.query.startDate;
         
-        // 🌟 SÉCURITÉ & IDEMPOTENCE : Si un métronome tourne déjà, on le coupe cleanly
         if (timer) {
             clearInterval(timer);
             timer = undefined;
         }
         
-        // 🌟 US 1 : NETTOYAGE DES ANOMALIES EN COURS
         try {
             fastify.scenarioService.clearScenario();
-            fastify.log.info("♻️ [START-SEAL] Nettoyage préemptif des pannes et scénarios résiduels réussi.");
-        } catch (scenarioError) {
-            fastify.log.error({ err: scenarioError }, "⚠️ Impossible de clear le scenarioService au démarrage");
+        } catch (e) {
+            fastify.log.error(e);
         }
         
-        // US 2 : TRAITEMENT DE LA DATE DYNAMIQUE
-        if (startDateParam) {
-            const parsedDate = new Date(startDateParam);
+        // 🌟 CORRECTION : Forcer la date par défaut (Lundi à 00h00) si non fournie dans l'URL
+        let startDate = new Date("2026-05-18T00:00:00.000Z");
+        if (req.query.startDate) {
+            const parsedDate = new Date(req.query.startDate);
             if (!isNaN(parsedDate.getTime())) {
-                SimulationService.setClock(parsedDate);
+                startDate = parsedDate;
             }
         }
+        SimulationService.setClock(startDate);
         
-        // Réinitialisation du compteur de la session
         virtualMinutesElapsed = 0;
         currentCadenceMs = cadenceSeconds * 1000;
 
@@ -112,42 +195,28 @@ export default async function simulationController(fastify: FastifyInstance) {
             minutesPerTick = parseInt(tickDuration, 10) || 60;
         }
 
-        // Lancement de la boucle
         timer = setInterval(async () => {
             try {
                 const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
                 await service.simulateTick({ persist, tickDuration });
-                
                 virtualMinutesElapsed += minutesPerTick;
                 
                 if (virtualMinutesElapsed >= ONE_WEEK_MINUTES) {
                     clearInterval(timer);
                     timer = undefined; 
-                    fastify.io.emit('simulation_auto_stopped', { 
-                        reason: '1_week_completed',
-                        message: "🏁 Fin du benchmark : 1 semaine complète s'est écoulée !"
-                    });
                 }
             } catch (err) {
                 fastify.log.error(err);
             }
         }, currentCadenceMs);
 
-        return { 
-            status: "Simulation démarrée", 
-            setup: "Clean & Serein (Pannes réinitialisées)",
-            cadence: `${cadenceSeconds}s`,
-            tickDuration: tickDuration
-        };
+        return { status: "Simulation démarrée", cadence: `${cadenceSeconds}s` };
     });
 
     /**
      * POST /sim/stop
-     * Arrête la simulation manuellement
      */
-    fastify.post('/sim/stop', {
-        schema: { tags: ['Simulation'], description: 'Arrête le métronome manuellement' }
-    }, async () => {
+    fastify.post('/sim/stop', { schema: { tags: ['Simulation'] } }, async () => {
         if (timer) {
             clearInterval(timer);
             timer = undefined; 
@@ -158,11 +227,8 @@ export default async function simulationController(fastify: FastifyInstance) {
 
     /**
      * GET /sim/state
-     * Récupère l'état instantané du parc pour l'agent Python
      */
-    fastify.get('/sim/state', {
-        schema: { tags: ['Simulation'], description: 'Observations pour l\'agent SRE' }
-    }, async () => {
+    fastify.get('/sim/state', { schema: { tags: ['Simulation'] } }, async () => {
         const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
         return await service.getAgentState();
     });
@@ -171,29 +237,7 @@ export default async function simulationController(fastify: FastifyInstance) {
      * POST /build-exercise
      */
     fastify.post<{ Body: { topology: Array<{ clusterName: string; city: string; configProfile: string; clusterCount: number; nodesOverride?: number }> } }>('/build-exercise', {
-        schema: {
-            tags: ['Simulation'],
-            body: {
-                type: 'object',
-                required: ['topology'],
-                properties: {
-                    topology: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['clusterName', 'city', 'configProfile', 'clusterCount'],
-                            properties: {
-                                clusterName: { type: 'string' },
-                                city: { type: 'string', enum: ['Paris', 'Marseille', 'Frankfurt', 'Oslo', 'Dublin'] },
-                                configProfile: { type: 'string' },
-                                clusterCount: { type: 'number' },
-                                nodesOverride: { type: 'number' }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        schema: { tags: ['Simulation'] }
     }, async (req) => {
         if (timer) {
             clearInterval(timer);
@@ -208,10 +252,7 @@ export default async function simulationController(fastify: FastifyInstance) {
      * POST /sim/maintenance/repair
      */
     fastify.post<{ Body: { fanId: number } }>('/sim/maintenance/repair', {
-        schema: { 
-            tags: ['Simulation'], 
-            body: { type: 'object', required: ['fanId'], properties: { fanId: { type: 'number' } } }
-        }
+        schema: { tags: ['Simulation'] }
     }, async (req, reply) => {
         const { fanId } = req.body;
         const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
@@ -223,9 +264,7 @@ export default async function simulationController(fastify: FastifyInstance) {
     /**
      * POST /sim/reset
      */
-    fastify.post('/sim/reset', {
-        schema: { tags: ['Simulation'] }
-    }, async () => {
+    fastify.post('/sim/reset', { schema: { tags: ['Simulation'] } }, async () => {
         fastify.scenarioService.clearScenario();
         SimulationService.resetClock(); 
         virtualMinutesElapsed = 0; 
@@ -238,9 +277,7 @@ export default async function simulationController(fastify: FastifyInstance) {
     /**
      * POST /sim/hard-reset
      */
-    fastify.post('/sim/hard-reset', {
-        schema: { tags: ['Simulation'] }
-    }, async () => {
+    fastify.post('/sim/hard-reset', { schema: { tags: ['Simulation'] } }, async () => {
         if (timer) { 
             clearInterval(timer); 
             timer = undefined;
@@ -270,98 +307,9 @@ export default async function simulationController(fastify: FastifyInstance) {
     /**
      * POST /sim/seed-history
      */
-    fastify.post('/sim/seed-history', {
-        schema: { tags: ['Simulation'] }
-    }, async () => {
+    fastify.post('/sim/seed-history', { schema: { tags: ['Simulation'] } }, async () => {
         const builder = new ExerciseBuilderService(prisma);
         const totalRows = await builder.seedHealthyWeekHistory();
         return { status: 'success', message: `Historique généré (${totalRows} lignes).` };
-    });
-
-    /**
-     * POST /sim/scenarios/marseille
-     * Lance directement le scénario personnalisé Canicule de Marseille à horaire fixe (US 1, 2, 3)
-     */
-    /**
-     * POST /sim/scenarios/marseille
-     * Lance le scénario Marseille avec cadence et durée de ticks ajustables par l'utilisateur
-     */
-    fastify.post<{ Querystring: { persist?: boolean; cadence?: number; tickDuration?: string } }>('/sim/scenarios/marseille', {
-        schema: { 
-            tags: ['Simulation'], 
-            description: 'Arme le scénario de Marseille à horaire fixe et démarre la boucle à vitesse configurable',
-            querystring: {
-                type: 'object',
-                properties: {
-                    persist: { type: 'boolean', default: true, description: 'Si true, enregistre les métriques dans TimescaleDB' },
-                    cadence: { type: 'number', enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 5, description: 'Fréquence de rafraîchissement en secondes' },
-                    tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h', description: 'Durée virtuelle d\'un tick' }
-                }
-            }
-        }
-    }, async (req, reply) => {
-        const persist = req.query.persist !== false; // true par défaut pour ce scénario
-        const cadenceSeconds = req.query.cadence ?? 5;
-        const tickDuration = req.query.tickDuration ?? '1h';
-
-        // 1. SÉCURITÉ : Si un métronome tourne, on le stoppe cleanly
-        if (timer) {
-            clearInterval(timer);
-            timer = undefined;
-        }
-
-        // 2. HORAIRE FIXE : Alignement parfait sur le Lundi 00h00
-        const fixedStartDate = new Date("2026-05-18T00:00:00.000Z");
-        SimulationService.setClock(fixedStartDate);
-
-        // 3. ARMEMENT : Chargement du scénario depuis scenarios.json
-        try {
-            await fastify.scenarioService.loadScenario('sc_marseille_gpu_melt');
-        } catch (err) {
-            return reply.status(404).send({ 
-                status: 'error', 
-                message: "Le scénario [sc_marseille_gpu_melt] est introuvable. Vérifie ton fichier scenarios.json." 
-            });
-        }
-
-        // 4. CALCUL DE LA VITESSE VIRTUELLE
-        virtualMinutesElapsed = 0;
-        currentCadenceMs = cadenceSeconds * 1000;
-
-        let minutesPerTick = 60;
-        if (tickDuration !== '1h') {
-            minutesPerTick = parseInt(tickDuration, 10) || 60;
-        }
-
-        // 5. DÉMARRAGE AUTOMATIQUE CADENCÉ
-        timer = setInterval(async () => {
-            try {
-                const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
-                await service.simulateTick({ persist, tickDuration });
-                
-                virtualMinutesElapsed += minutesPerTick;
-                
-                if (virtualMinutesElapsed >= ONE_WEEK_MINUTES) {
-                    clearInterval(timer);
-                    timer = undefined; 
-                    fastify.io.emit('simulation_auto_stopped', { 
-                        reason: '1_week_completed',
-                        message: "🏁 Fin du benchmark Marseille : 1 semaine complète s'est écoulée !"
-                    });
-                }
-            } catch (err) {
-                fastify.log.error(err);
-            }
-        }, currentCadenceMs);
-
-        return { 
-            status: "success", 
-            message: "🔥 Scénario Marseille enclenché !", 
-            setup: {
-                cadence: `${cadenceSeconds}s par tick`,
-                virtualTimePerTick: tickDuration,
-                startedAt: fixedStartDate.toISOString()
-            }
-        };
     });
 }

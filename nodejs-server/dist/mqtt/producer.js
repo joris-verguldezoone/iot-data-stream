@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-// nodejs-server/src/workers/producer.ts
+// src/mqtt/producer.ts
 require("dotenv/config");
 const mqtt_1 = __importDefault(require("mqtt"));
 const pg_1 = __importDefault(require("pg"));
@@ -19,6 +19,7 @@ const AC_TARGET = 20.0;
 const AC_EFFICIENCY = 0.92;
 const globalWeather = {};
 let dynamicTelemetryInterval = 5000;
+let fallbackSimulatedDate = new Date("2026-05-18T00:00:00.000Z");
 async function refreshAllCitiesWeather(cities) {
     for (const city of cities) {
         try {
@@ -34,116 +35,100 @@ async function refreshAllCitiesWeather(cities) {
         }
     }
 }
-function getAmbientTemp(externalTemp) {
-    if (externalTemp <= AC_TARGET)
-        return AC_TARGET;
-    return AC_TARGET + (externalTemp - AC_TARGET) * (1 - AC_EFFICIENCY);
-}
-async function startSimulation() {
-    console.log("📡 Connexion au Broker MQTT...");
-    client.on("connect", async () => {
-        console.log("✅ Connecté au Broker.");
-        const ALL_POSSIBLE_CITIES = ['Paris', 'Marseille', 'Frankfurt', 'Oslo', 'Dublin'];
-        await refreshAllCitiesWeather(ALL_POSSIBLE_CITIES);
-        setInterval(() => refreshAllCitiesWeather(ALL_POSSIBLE_CITIES), WEATHER_REFRESH_INTERVAL);
-        const simulatedDate = new Date();
-        const localThermalCache = {};
-        async function tick() {
+client.on("connect", async () => {
+    console.log("✅ [MQTT-PRODUCER] Connecté au Broker Mosquitto.");
+    const ALL_POSSIBLE_CITIES = ['Paris', 'Marseille', 'Frankfurt', 'Oslo', 'Dublin'];
+    await refreshAllCitiesWeather(ALL_POSSIBLE_CITIES);
+    setInterval(() => refreshAllCitiesWeather(ALL_POSSIBLE_CITIES), WEATHER_REFRESH_INTERVAL);
+    const runLoop = async () => {
+        try {
+            let simulatedDate;
+            let loadMultiplier = 1.0;
+            let thermalDrifts = {};
+            let isRunning = false; // 🌟 On ajoute le flag d'état
             try {
-                // Variables locales pour stocker l'influence du scénario dynamique en cours
-                let loadMultiplier = 1.0;
-                let scenarioThermalDrift = 0.0;
-                // Vérification du statut de l'API (US 1 + Récupération des modificateurs de scénario)
-                try {
-                    const cadenceResponse = await fetch("http://api-node:3333/internal/cadence");
-                    if (cadenceResponse.ok) {
-                        // 🌟 On enrichit le typage pour intercepter les forces du scénario actif
-                        const cadenceData = (await cadenceResponse.json());
-                        if (cadenceData.cadenceMs)
-                            dynamicTelemetryInterval = cadenceData.cadenceMs;
-                        if (!cadenceData.isRunning) {
-                            console.log("💤 [PRODUCER] Simulation en pause. En attente...");
-                            return;
-                        }
-                        // 🌟 Extraction des modificateurs d'anomalies
-                        if (cadenceData.loadMultiplier !== undefined)
-                            loadMultiplier = cadenceData.loadMultiplier;
-                        if (cadenceData.thermalDrift !== undefined)
-                            scenarioThermalDrift = cadenceData.thermalDrift;
+                const response = await fetch("http://api-node:3333/internal/cadence");
+                if (response.ok) {
+                    const syncData = (await response.json());
+                    dynamicTelemetryInterval = syncData.cadenceMs ?? 5000;
+                    loadMultiplier = syncData.loadMultiplier ?? 1.0;
+                    thermalDrifts = syncData.thermalDrifts ?? {};
+                    isRunning = syncData.isRunning ?? false; // 🌟 Récupération du flag depuis l'API Node
+                    if (syncData.currentSimulatedDate) {
+                        simulatedDate = new Date(syncData.currentSimulatedDate);
+                        fallbackSimulatedDate = new Date(simulatedDate);
+                    }
+                    else {
+                        fallbackSimulatedDate.setHours(fallbackSimulatedDate.getHours() + 1);
+                        simulatedDate = new Date(fallbackSimulatedDate);
                     }
                 }
-                catch (err) {
-                    return;
+                else {
+                    fallbackSimulatedDate.setHours(fallbackSimulatedDate.getHours() + 1);
+                    simulatedDate = new Date(fallbackSimulatedDate);
                 }
-                simulatedDate.setHours(simulatedDate.getHours() + 1);
-                const currentHour = simulatedDate.getHours();
-                const activeServers = await prisma.server.findMany({
-                    include: {
-                        configuration: { include: { load_profile: true } },
-                        sensors: true,
-                        cluster: { include: { clusterLocation: true } }
+            }
+            catch (apiError) {
+                fallbackSimulatedDate.setHours(fallbackSimulatedDate.getHours() + 1);
+                simulatedDate = new Date(fallbackSimulatedDate);
+            }
+            // 🌟 SÉCURITÉ ABSOLUE : Si l'API Node dit que la simulation est sur PAUSE, on n'envoie RIEN !
+            if (!isRunning) {
+                console.log("💤 [MQTT-PRODUCER] Le jumeau numérique est en pause. En attente d'un top départ...");
+                return; // On stoppe l'itération ici, le bloc "finally" replanifiera la vérification au prochain coup
+            }
+            const activeClusters = await prisma.cluster.findMany({
+                include: {
+                    clusterLocation: true,
+                    servers: { include: { sensors: true, fans: true } }
+                }
+            });
+            const currentHour = simulatedDate.getHours();
+            for (const cluster of activeClusters) {
+                const city = cluster.clusterLocation.name;
+                const tExt = globalWeather[city] || 18.0;
+                const tAmb = AC_TARGET + (tExt - AC_TARGET) * (1 - AC_EFFICIENCY);
+                // 🌟 Requête corrigée conforme à la table pivot du schéma
+                const profileRow = await prisma.loadProfile.findFirst({
+                    where: {
+                        hour: currentHour,
+                        cluster_configurations: {
+                            some: {
+                                cluster_config_id: cluster.cluster_id
+                            }
+                        }
                     }
                 });
-                if (activeServers.length === 0)
-                    return;
-                let coolingRegistry = {};
-                try {
-                    const response = await fetch("http://api-node:3333/internal/control");
-                    if (response.ok)
-                        coolingRegistry = (await response.json());
-                }
-                catch (err) { }
-                for (const server of activeServers) {
-                    const city = server.cluster.clusterLocation.location || "Paris";
-                    const location = city.toLowerCase();
-                    let tExt = globalWeather[city] || 18.0;
-                    if (location.includes("marseille"))
-                        tExt = 35.0;
-                    else if (location.includes("oslo"))
-                        tExt = 12.0;
-                    const tAmb = getAmbientTemp(tExt);
-                    // 🌟 1. DÉCOUPLAGE DE LA CHARGE (MASTER VS WORKER)
-                    let finalLoad = 0.10; // Par défaut, un Master dort à 10% de charge stable
-                    if (!server.is_master) {
-                        // Seuls les Workers subissent les courbes sinusoïdales et les profils de charge lourds
-                        const profileName = server.configuration?.load_profile?.name || "Standard_Cycle";
-                        const currentProfile = await prisma.loadProfile.findUnique({
-                            where: { name_hour: { name: profileName, hour: currentHour % 24 } }
-                        });
-                        finalLoad = currentProfile?.expected_load_percent ?? 0.25;
-                        if (currentProfile?.expected_load_percent === undefined) {
-                            if (location.includes("paris")) {
-                                finalLoad = 0.25 + 0.55 * Math.sin((((currentHour % 24) - 6) / 24) * 2 * Math.PI);
-                            }
-                            else if (location.includes("marseille")) {
-                                finalLoad = 0.45 + 0.15 * Math.sin(((currentHour % 24) / 24) * 2 * Math.PI);
-                            }
+                const profileLoadFactor = (profileRow?.expected_load_percent ?? 20) / 100;
+                for (const server of cluster.servers) {
+                    const isMaster = server.hostname.toLowerCase().includes("master");
+                    let finalLoad = isMaster ? 0.12 : profileLoadFactor * loadMultiplier;
+                    if (finalLoad > 1.0)
+                        finalLoad = 1.0;
+                    if (finalLoad < 0.0)
+                        finalLoad = 0.0;
+                    let totalSpeed = 0;
+                    let activeFansCount = 0;
+                    for (const f of server.fans) {
+                        if (f.status === "ON") {
+                            totalSpeed += f.speed_percent;
+                            activeFansCount++;
                         }
-                        // 🌟 MODIFICATEUR DE SCÉNARIO : On applique le pic de charge (ex: op_traffic_surge)
-                        finalLoad = finalLoad * loadMultiplier;
                     }
-                    finalLoad = Math.max(0.05, Math.min(0.95, finalLoad));
-                    // 🌟 2. LE PIMENT THERMIQUE (US 3)
-                    const targetMax = server.is_master ? 55 : (server.configuration?.load_profile?.target_temp_celsius || 92);
-                    const fanSpeed = coolingRegistry[server.hostname] ?? 30;
-                    const coolingImpact = (fanSpeed - 30) * 0.4;
-                    let targetTemp = tAmb + (finalLoad * (targetMax - tAmb)) - coolingImpact;
-                    const previousTemp = localThermalCache[server.hostname] || 32.0;
-                    let inertiaFactor = server.is_master ? 0.50 : (location.includes("paris") ? 0.92 : 0.60);
-                    let computedTemp = (previousTemp * inertiaFactor) + (targetTemp * (1 - inertiaFactor));
-                    // Simulateur de panne matérielle / Surchauffe non régulée
-                    if (fanSpeed <= 20) {
-                        computedTemp = previousTemp + (finalLoad * 8.0);
+                    const fanSpeed = activeFansCount > 0 ? totalSpeed / server.fans.length : 0;
+                    const drift = thermalDrifts[server.server_id] ?? 0.0;
+                    // 🌟 PHYSIQUE THERMIQUE PIMENTÉE ET RÉALISTE DU PRODUCTEUR
+                    let computedTemp = tAmb + (finalLoad * 55) + drift;
+                    if (fanSpeed > 0) {
+                        const coolingPower = (fanSpeed / 100) * 25 * (finalLoad + 0.3);
+                        computedTemp -= coolingPower;
                     }
-                    // 🌟 MODIFICATEUR DE SCÉNARIO : Injection directe de la dérive thermique (ex: canicule/panne de climatisation)
-                    computedTemp = computedTemp + scenarioThermalDrift;
-                    // Limitation physique supérieure (Protection silicium avant destruction)
-                    computedTemp = Math.min(105.0, Math.max(28.0, computedTemp));
-                    localThermalCache[server.hostname] = computedTemp;
-                    // Consommation électrique
-                    // @ts-ignore
-                    const maxConsumption = server.is_master ? (server.configuration?.consomation_per_master || 350) : (server.configuration?.consomation_per_worker || 220);
-                    const baseConsumption = maxConsumption * 0.20;
+                    if (computedTemp < tAmb)
+                        computedTemp = tAmb;
+                    if (computedTemp > 105.0)
+                        computedTemp = 105.0;
+                    const baseConsumption = 120;
+                    const maxConsumption = 450;
                     const currentPower = baseConsumption + (finalLoad * (maxConsumption - baseConsumption)) + (fanSpeed * 0.6);
                     const payload = {
                         timestamp: simulatedDate.toISOString(),
@@ -166,16 +151,15 @@ async function startSimulation() {
                     };
                     client.publish(`v1/gateway/telemetry/${server.hostname}`, JSON.stringify(payload));
                 }
-                console.log(`[${simulatedDate.toLocaleString()}] 📤 Télémétrie asymétrique transmise (Masters stables, Workers dynamiques).`);
             }
-            catch (globalError) {
-                console.error("❌ CRASH TICK :", globalError);
-            }
-            finally {
-                setTimeout(tick, dynamicTelemetryInterval);
-            }
+            console.log(`[📤 MQTT] Télémétrie transmise pour la date virtuelle : ${simulatedDate.toISOString()}`);
         }
-        setTimeout(tick, dynamicTelemetryInterval);
-    });
-}
-startSimulation().catch(console.error);
+        catch (globalError) {
+            console.error("❌ CRASH TICK PRODUCER MQTT :", globalError);
+        }
+        finally {
+            setTimeout(runLoop, dynamicTelemetryInterval);
+        }
+    };
+    setTimeout(runLoop, dynamicTelemetryInterval);
+});

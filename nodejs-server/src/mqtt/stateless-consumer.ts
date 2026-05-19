@@ -1,8 +1,7 @@
 import mqtt from 'mqtt';
 import { prisma } from '../prisma/prisma';
 
-const client = mqtt.connect(process.env.MQTT_BROKER_URL || 'mqtt://mosquitto:1883');
-
+const client = mqtt.connect(process.env.MQTT_URL || 'mqtt://mosquitto:1883');
 // 🌟 On écoute le topic de la passerelle
 const TOPIC_TELEMETRIE = 'v1/gateway/telemetry/#';
 

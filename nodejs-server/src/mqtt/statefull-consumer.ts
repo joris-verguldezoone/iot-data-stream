@@ -10,7 +10,7 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 // Connexion MQTT
-const BROKER_URL = process.env.MQTT_BROKER_URL || "mqtt://mosquitto:1883";
+const BROKER_URL = process.env.MQTT_URL || "mqtt://mosquitto:1883";
 const client = mqtt.connect(BROKER_URL);
 
 client.on("connect", () => {

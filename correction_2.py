@@ -6,42 +6,32 @@ import paho.mqtt.client as mqtt
 MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 TOPIC_TELEMETRIE = "v1/gateway/telemetry/#"
-API_CONTROL_URL = "http://localhost:3333/api/servers"
+
+# 🌟 ADAPTATION À TA ROUTE HARDWARE EXISTANTE
+API_BASE_URL = "http://localhost:3333" 
 
 # 🎛️ PARAMÈTRES DE CONTRÔLE
-TEMP_CIBLE = 30.0
-FAN_BASE_SPEED = 30  # Vitesse minimale de sécurité (mode éco)
+TEMP_CIBLE = 50.0    
+FAN_BASE_SPEED = 20  
+TEMP_CRITIQUE = 78.0 
 
-# Gains du régulateur (Ajustés pour contrer l'inertie)
-Kp = 3.5             # Puissance de réaction face à l'écart de température
-Kf = 0.5             # Facteur d'anticipation basé sur la charge (Feed-Forward)
+Kp = 3.5             
+Kf = 0.5             
 
 
-def control_loi_physique(hostname, current_temp, current_load):
-    """
-    🧠 Algorithme de régulation Proportionnel + Anticipation de charge.
-    """
-    # 1. Calcul de l'écart par rapport à la cible
+def control_loi_physique(current_temp, current_load):
+    """ Algorithme de régulation Proportionnel + Anticipation de charge """
     erreur = current_temp - TEMP_CIBLE
-    
-    # 2. Composante Proportionnelle (Réaction à la chaleur présente)
     action_p = Kp * erreur
-    
-    # 3. Composante Anticipative (Réaction préventive à la charge CPU de travail)
     action_feed_forward = Kf * current_load
     
-    # 4. Calcul de la vitesse finale
     vitesse = FAN_BASE_SPEED + action_p + action_feed_forward
-    
-    # Sécurité : On borne impérativement la vitesse entre 0% et 100%
-    vitesse_clamped = max(0, min(100, int(vitesse)))
-    
-    return vitesse_clamped
+    return max(0, min(100, int(vitesse)))
 
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        print("✅ AGENT IA : Connecté au Broker MQTT. Analyse des clusters en cours...")
+        print("✅ AGENT IA : Connecté au Broker MQTT. Utilisation de la route PATCH /fans/{id}")
         client.subscribe(TOPIC_TELEMETRIE)
     else:
         print(f"❌ Échec de connexion MQTT, code : {rc}")
@@ -53,36 +43,57 @@ def on_message(client, userdata, msg):
         hostname = payload.get("hostname")
         sensors = payload.get("sensors", [])
 
-        # Extraction simultanée de la température et de la charge
+        # Extraction des capteurs physiques
         temp_sensor = next((s for s in sensors if s.get("type") == "CPU_TEMP"), None)
         load_sensor = next((s for s in sensors if s.get("type") == "LOAD"), None)
+        fan_sensor = next((s for s in sensors if s.get("type").startswith("FAN_SPEED")), None)
 
         if temp_sensor and load_sensor:
             cpu_temp = float(temp_sensor.get("value"))
             cpu_load = float(load_sensor.get("value"))
             
-            # Évaluation de la commande optimale
-            vitesse_calculee = control_loi_physique(hostname, cpu_temp, cpu_load)
+            # Note : On extrait l'ID présent dans le capteur de télémétrie
+            sensor_id = fan_sensor.get("id") if fan_sensor else None
             
-            # Détermination de la sévérité du log selon le niveau de crise
-            status_icon = "🟢" if cpu_temp < 62 else ("🟠" if cpu_temp < 70 else "🚨")
-            print(f"{status_icon} [{hostname}] T:{cpu_temp}°C | Load:{cpu_load:.1f}% -> Ordre Ventilo : {vitesse_calculee}%")
+            # 🔥 CAS DE CRISE 1 : Déclenchement de la maintenance (Marseille)
+            if cpu_temp >= TEMP_CRITIQUE and sensor_id:
+                print(f"🚨 [CRISE - {hostname}] Surchauffe ({cpu_temp}°C) ! Demande de maintenance...")
+                try:
+                    res = requests.post(f"{API_BASE_URL}/sim/maintenance/repair", json={"fanId": int(sensor_id)}, timeout=2)
+                    if res.status_code == 200:
+                        print(f"🔧 [MAINTENANCE] Équipe envoyée pour le ventilateur {sensor_id}.")
+                    else:
+                        print(f"⚠️ Échec appel maintenance : {res.status_code}")
+                except requests.exceptions.RequestException:
+                    print("❌ API Maintenance introuvable.")
+                return
 
-            # Envoi de la commande via l'API Fastify
-            url = f"{API_CONTROL_URL}/{hostname}/control"
-            try:
-                res = requests.post(url, json={"fan_speed": vitesse_calculee}, timeout=2)
-                if res.status_code != 200:
-                    print(f"⚠️ Erreur HTTP {res.status_code} sur {hostname}")
-            except requests.exceptions.RequestException:
-                print(f"❌ API Fastify injoignable pour le serveur {hostname}")
+            # 🟢 REGIME NOMINAL 2 : Modification réelle de la vitesse avec TA route PATCH
+            vitesse_calculee = control_loi_physique(cpu_temp, cpu_load)
+            status_icon = "🟢" if cpu_temp < 55 else "🟠"
+            print(f"{status_icon} [{hostname}] T:{cpu_temp}°C -> Application vitesse : {vitesse_calculee}%")
+
+            if sensor_id:
+                try:
+                    # 🌟 APPEL DE TA ROUTE : PATCH /fans/{id}
+                    # Adapte le body {"speed_percent": ...} selon le nom exact attendu par ton DTO Prisma !
+                    url_patch = f"{API_BASE_URL}/fans/{sensor_id}"
+                    res = requests.patch(
+                        url_patch, 
+                        json={"speed_percent": vitesse_calculee}, 
+                        timeout=2
+                    )
+                    if res.status_code != 200:
+                        print(f"⚠️ Erreur PATCH {res.status_code} sur le ventilateur ID {sensor_id}")
+                except requests.exceptions.RequestException:
+                    print(f"❌ API Hardware injoignable pour le ventilateur {sensor_id}")
 
     except Exception as e:
-        print(f"⚠️ Erreur parsing message : {e}")
+        print(f"⚠️ Erreur agent : {e}")
 
 
 if __name__ == "__main__":
-    print("🤖 Lancement de l'Agent de Régulation Thermique Avancé...")
+    print("🤖 Lancement de l'Agent de Régulation avec intégration PATCH...")
     client = mqtt.Client()
     client.on_connect = on_connect
     client.on_message = on_message
@@ -91,4 +102,4 @@ if __name__ == "__main__":
         client.connect(MQTT_BROKER, MQTT_PORT, 60)
         client.loop_forever()
     except KeyboardInterrupt:
-        print("\n👋 Arrêt de l'agent de régulation.")
+        print("\n👋 Arrêt de l'agent.")

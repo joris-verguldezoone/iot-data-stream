@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const mqtt_1 = __importDefault(require("mqtt"));
 const prisma_1 = require("../prisma/prisma");
-const client = mqtt_1.default.connect(process.env.MQTT_BROKER_URL || 'mqtt://mosquitto:1883');
+const client = mqtt_1.default.connect(process.env.MQTT_URL || 'mqtt://mosquitto:1883');
 // 🌟 On écoute le topic de la passerelle
 const TOPIC_TELEMETRIE = 'v1/gateway/telemetry/#';
 client.on('connect', () => {

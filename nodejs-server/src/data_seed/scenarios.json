@@ -1,12 +1,12 @@
 [
   {
     "id": "sc_marseille_gpu_melt",
-    "name": "🔥 [MARSEILLE] Canicule Phocéenne & Surcharge GPU",
-    "description": "Scénario chirurgical pour la topologie Marseille (MEDIUM_GPU). Une vague de chaleur couplée à un pic d'inférence IA sature les workers. Au tick 8, le premier nœud de calcul (srv-3) subit une dérive thermique, suivie du crash complet de son ventilateur principal (fan-9) au tick 12. Surchauffe critique garantie !",
+    "name": "🔥 [MARSEILLE] Canicule Phocéenne & Surcharge GPU (Milieu de semaine)",
+    "description": "Le datacenter démarre le lundi. Tout est normal pendant 2 jours. Le Mercredi à 04h00 (Tick 52), une surcharge applicative frappe les serveurs (Multiplié par 2). À 08h00 (Tick 56), la canicule crée une dérive thermique (+15°C) sur le srv-3. À midi (Tick 60), le ventilateur 9 lâche en plein pic de chaleur.",
     "events": [
-      { "tick": 4, "type": "LOAD_SPIKE_ALL", "value": 90 },
-      { "tick": 8, "type": "THERMAL_DRIFT_SERVER", "targetId": 3, "value": 15.0 },
-      { "tick": 12, "type": "CRASH_FAN", "targetId": 9 }
+      { "tick": 52, "type": "LOAD_SPIKE_ALL", "value": 2.0 },
+      { "tick": 56, "type": "THERMAL_DRIFT_SERVER", "targetId": 3, "value": 15.0 },
+      { "tick": 60, "type": "CRASH_FAN", "targetId": 9 }
     ]
   },
   {
@@ -22,7 +22,7 @@
     "name": "Surcharge Opérationnelle : Hausse de Trafic",
     "description": "Soudaine vagues de requêtes hors production provoquant un pic de charge global.",
     "events": [
-      { "tick": 10, "type": "LOAD_SPIKE_ALL", "value": 90 }
+      { "tick": 10, "type": "LOAD_SPIKE_ALL", "value": 2.0 }
     ]
   },
   {
@@ -36,9 +36,9 @@
   {
     "id": "sc_cluster_high",
     "name": "🔥 [HIGH-POWER] Stress-Test IA & Supercalculateur",
-    "description": "Simulation d'un entraînement massif de LLM (Grand Modèle de Langage) sur le cluster High-Power. La charge informatique sature instantanément à 95%, mettant à l'épreuve l'inertie des gros CPU.",
+    "description": "Simulation d'un entraînement massif de LLM. La charge informatique double, mettant à l'épreuve l'inertie des gros CPU.",
     "events": [
-      { "tick": 5, "type": "LOAD_SPIKE_ALL", "value": 95 }
+      { "tick": 5, "type": "LOAD_SPIKE_ALL", "value": 2.2 }
     ]
   },
   {
@@ -60,9 +60,9 @@
   {
     "id": "sc_euro_cross_topology",
     "name": "🌍 [TOPOLOGIE] Le Grand Chelem Européen (Multi-Villes)",
-    "description": "Scénario ultime configuré pour la topologie d'examen : Le Big Cluster de Paris subit un pic de charge (90%), le Medium de Marseille fait face à une dérive thermique (+2.5) liée à la chaleur du Sud, tandis que le Small d'Oslo subit une panne de ventilateur.",
+    "description": "Scénario ultime configuré pour la topologie d'examen : Le Big Cluster de Paris subit un pic de charge (x2), le Medium de Marseille fait face à une dérive thermique (+2.5) liée à la chaleur du Sud, tandis que le Small d'Oslo subit une panne de ventilateur.",
     "events": [
-      { "tick": 4, "type": "LOAD_SPIKE_ALL", "value": 90 },
+      { "tick": 4, "type": "LOAD_SPIKE_ALL", "value": 2.0 },
       { "tick": 8, "type": "THERMAL_DRIFT_SERVER", "targetId": 3, "value": 2.5 },
       { "tick": 12, "type": "CRASH_FAN", "targetId": 5 }
     ]

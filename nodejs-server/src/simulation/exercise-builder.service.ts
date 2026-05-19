@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client";
 // Payload d'entrée structuré avec TOUS les champs nécessaires
 export interface SandboxBuildInput {
     topology: Array<{
-        clusterName: string;   // 🚨 AJOUTÉ : Corrige l'erreur TS2339
+        clusterName: string;   
         city: string;          // Menu déroulant 1 : La localisation géographique
         configProfile: string; // Menu déroulant 2 : Le profil matériel
         clusterCount: number;  // Menu déroulant 3 : Nombre de sous-clusters à déployer dans cette ville
@@ -77,9 +77,26 @@ export class ExerciseBuilderService {
         const fanCatalogEco = await this.prisma.fanCatalog.create({ data: { model_name: "FAN_ECO", consomation: 0.4 } });
 
         const defaultFanConfig = await this.prisma.fanConfiguration.create({ data: { name: "Default_Auto_Regulation", consomation: 0.8 } });
-        const defaultLoadProfile = await this.prisma.loadProfile.create({
-            data: { name: "Config_Auto_Paris-01", hour: 12, expected_load_percent: 20, target_temp_celsius: 60.0, standard_fan_speed: "MEDIUM" }
-        });
+
+        // 🌟 CORRECTION CRUCIALE : Génération d'un agenda de charge 24h complet pour éviter les trous temporels
+        // et caler proprement le "hour" attendu par la BDD réalignée
+        const defaultLoadProfileIds: number[] = [];
+        for (let h = 0; h < 24; h++) {
+            // Profil ondulatoire de base (Simule l'activité humaine jour/nuit nominale)
+            const nominalLoad = 20 + 30 * Math.sin(((h - 8) * Math.PI) / 12);
+            const boundedLoad = Math.max(15, Math.min(75, Math.round(nominalLoad)));
+
+            const profileRow = await this.prisma.loadProfile.create({
+                data: { 
+                    name: `Config_Auto_H${h.toString().padStart(2, '0')}`, 
+                    hour: h, 
+                    expected_load_percent: boundedLoad, 
+                    target_temp_celsius: 60.0, 
+                    standard_fan_speed: "MEDIUM" 
+                }
+            });
+            defaultLoadProfileIds.push(profileRow.id);
+        }
 
         const mappingCoolers: Record<string, number> = { "LIQUID_COOLING": coolerLiquid.cpu_cooler_catalog_id, "AIR_HIGH_PERF": coolerAirHigh.cpu_cooler_catalog_id, "AIR_STANDARD": coolerAirStd.cpu_cooler_catalog_id };
         const mappingFans: Record<string, number> = { "FAN_HIGH_PERF": fanCatalogHigh.fan_catalog_id, "FAN_STANDARD": fanCatalogStd.fan_catalog_id, "FAN_ECO": fanCatalogEco.fan_catalog_id };
@@ -94,14 +111,13 @@ export class ExerciseBuilderService {
             if (!cityConfig) throw new Error(`La ville [${block.city}] n'appartient pas au catalogue de supervision.`);
             if (!blueprint) throw new Error(`Le profil matériel [${block.configProfile}] n'existe pas.`);
 
-            // 🚨 CALCUL DU PUE IDÉAL DE CETTE ZONE EN AMONT
             const baseInfrastructureFactor = 0.25;
             const weatherPenalty = cityConfig.defaultWeather > 15.0 ? (cityConfig.defaultWeather - 15.0) * 0.008 : 0.0;
-            const serverHeatingPenalty = 32.0 > 40.0 ? (32.0 - 40.0) * 0.005 : 0.0; 
+            const serverHeatingPenalty = 0.0; 
 
             const theoreticalIdealPue = Number((1.0 + baseInfrastructureFactor + weatherPenalty + serverHeatingPenalty).toFixed(3));
 
-            // A. Initialisation ou mise à jour de la plaque géographique
+            // A. Initialisation de la plaque géographique
             const location = await this.prisma.clusterLocation.upsert({
                 where: { name: block.city },
                 update: { cluster_count: { increment: block.clusterCount } },
@@ -114,21 +130,21 @@ export class ExerciseBuilderService {
                 }
             });
 
-            // B. Instanciation des sous-clusters demandés dans cette zone
+            // B. Instanciation des sous-clusters demandés
             for (let c = 1; c <= block.clusterCount; c++) {
                 const currentClusterName = `${block.clusterName}-Zone-${c.toString().padStart(2, '0')}`;
 
                 const clusterConfig = await this.prisma.clusterConfiguration.create({
                     data: {
                         name: `Config_${currentClusterName}`,
-                        pue: theoreticalIdealPue, // 🌟 US 4 : Ajout du PUE d'origine garanti non-null en DB
+                        pue: theoreticalIdealPue, 
                         master: blueprint.masters,
                         worker: blueprint.workers,
                         hardware_per_master: blueprint.hardwareMaster,
                         hardware_per_worker: blueprint.hardwareWorker,
                         consomation_per_master: blueprint.baseConsumptionMaster,
                         consomation_per_worker: blueprint.baseConsumptionWorker,
-                        load_profile_id: defaultLoadProfile.id,
+                        load_profile_id: defaultLoadProfileIds[12], // Lie l'id par défaut (ex: midi)
                         location_id: location.location_id,
                         fan_count: blueprint.fanCount,
                         cpu_cooler_catalog_id: mappingCoolers[blueprint.cpuCoolerModelName] || coolerAirStd.cpu_cooler_catalog_id,
@@ -141,7 +157,6 @@ export class ExerciseBuilderService {
                     data: { name: currentClusterName, cluster_location_id: location.location_id }
                 });
 
-                // Détermination du nombre de nœuds à injecter (avec support de surcharge dynamique)
                 let finalMastersCount = blueprint.masters;
                 let finalWorkersCount = blueprint.workers;
 
@@ -182,7 +197,7 @@ export class ExerciseBuilderService {
                         });
                     }
 
-                    // Attachement du kit complet des 5 capteurs de télémétrie
+                    // Attachement du kit complet des capteurs
                     const kitSensors = [
                         { type: "LOAD", unit: "%", value: 15.0 },
                         { type: "CPU_TEMP", unit: "°C", value: 32.0 },
@@ -212,7 +227,7 @@ export class ExerciseBuilderService {
     }
 
     /**
-     * Génère 7 jours d'historique sain (Télémétrie nominale) pour remplir Grafana instantanément
+     * Génère 7 jours d'historique sain (Télémétrie nominale)
      */
     async seedHealthyWeekHistory(): Promise<number> {
         console.log("⏳ [TIME-TRAVEL] Début de la génération des 7 jours d'historique sain...");
@@ -225,66 +240,50 @@ export class ExerciseBuilderService {
 
         const bulkData: any[] = [];
         const now = new Date();
-        
-        // 🌟 FIXE : On tronque à minuit pile pour caler parfaitement le rythme jour/nuit
         now.setHours(0, 0, 0, 0); 
         
-        const totalHours = 7 * 24; // 168 points historiques par capteur
+        const totalHours = 7 * 24; 
 
-        // 2. Boucle temporelle : on remonte 168 heures dans le passé et on avance heure par heure
         for (let hourOffset = totalHours; hourOffset >= 0; hourOffset--) {
             const simulatedTime = new Date(now.getTime() - hourOffset * 60 * 60 * 1000);
             
             const hourOfDay = simulatedTime.getHours();
-            const dayOfWeek = simulatedTime.getDay(); // 0 = Dimanche, 6 = Samedi
+            const dayOfWeek = simulatedTime.getDay(); 
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
-            // A. Détermination du profil de charge humaine (Rythme de bureau)
             let baseLoad = 20.0;
             if (!isWeekend) {
                 if (hourOfDay >= 8 && hourOfDay <= 18) {
-                    // Vague de charge la journée entre 8h et 18h
                     baseLoad = 55.0 + Math.sin((hourOfDay - 8) * (Math.PI / 10)) * 20.0;
                 } else if (hourOfDay > 18 && hourOfDay <= 23) {
-                    // Décroissance lente en soirée
                     baseLoad = 40.0 - (hourOfDay - 18) * 4.0;
                 }
             } else {
-                // Charge minimale calme le week-end
                 baseLoad = 15.0 + Math.sin(hourOfDay * (Math.PI / 12)) * 5.0;
             }
 
-            // B. Génération de la physique pour chaque serveur pour cette heure précise
             for (const server of servers) {
                 const cityName = server.cluster.clusterLocation.name;
-                const envFactor = server.cluster.clusterLocation.env_factor;
 
-                // Météo de base par ville
                 let baseCityTemp = 15.0;
                 if (cityName === "Marseille") baseCityTemp = 23.0;
                 if (cityName === "Oslo") baseCityTemp = 7.0;
                 if (cityName === "Paris") baseCityTemp = 16.0;
 
-                // Oscillation thermique jour/nuit (Maximum à 14h, Minimum à 4h du matin)
                 const weatherOscillation = Math.sin((hourOfDay - 8) * (Math.PI / 12)) * 5.0;
                 const currentExternalWeather = baseCityTemp + weatherOscillation;
 
-                // Petite variation aléatoire par serveur pour ne pas avoir des courbes superposées parfaites
                 const serverNoise = Math.sin(server.server_id * 10) * 2.0;
                 const actualLoad = Math.max(5, Math.min(100, baseLoad + serverNoise + (Math.random() * 4 - 2)));
 
-                // Température CPU saine (Auto-régulée par ventilation stable)
                 const cpuTemp = Math.max(30, Math.min(85, 35.0 + (actualLoad * 0.35) + (currentExternalWeather * 0.2) + (Math.random() * 2 - 1)));
 
-                // Consommation électrique proportionnelle à la charge
                 const powerWatts = server.is_master
                     ? server.base_consumption_offset + (actualLoad * 3.5)
                     : server.base_consumption_offset + (actualLoad * 2.8);
 
-                // Vitesse simulée des ventilateurs
                 const fanSpeed = Math.max(20, Math.min(100, 20.0 + (cpuTemp - 40.0) * 2.5));
 
-                // C. Distribution des valeurs aux 5 capteurs du serveur
                 for (const sensor of server.sensors) {
                     let sensorValue = 0;
                     const type = sensor.sensor_type.toUpperCase();
@@ -296,14 +295,13 @@ export class ExerciseBuilderService {
 
                     bulkData.push({
                         value: Number(sensorValue.toFixed(2)),
-                        time: simulatedTime,
+                        time: new Date(simulatedTime), // Cloner la date
                         sensor_id: sensor.sensor_id
                     });
                 }
             }
         }
 
-        // 3. Écriture de masse ultra-rapide dans PostgreSQL (Bulk Insert par paquets de 5000 lignes)
         console.log(`💾 [TIME-TRAVEL] Injection de ${bulkData.length} lignes de télémétrie en BDD...`);
         const chunkSize = 5000;
         for (let i = 0; i < bulkData.length; i += chunkSize) {

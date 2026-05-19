@@ -12,29 +12,18 @@ class ScenarioService {
     activeScenario = null;
     currentTick = 0;
     activeThermalDrifts = new Map();
-    // 🌟 SUIVI DYNAMIQUE DES MUTATIONS DE CHARGE GLOBALE
     currentLoadMultiplier = 1.0;
-    // Suivi des réparations en cours { fanId -> { serverId, ticksRestants } }
     pendingRepairs = new Map();
     constructor(prisma, io) {
         this.prisma = prisma;
         this.io = io;
     }
-    /**
-     * 🌟 US 1 : Retourne le scénario actuellement chargé (Métadonnées)
-     */
     getCurrentScenario() {
         return this.activeScenario;
     }
-    /**
-     * 🌟 US 3 : Retourne le multiplicateur de charge actif lié aux événements
-     */
     getLoadMultiplier() {
         return this.currentLoadMultiplier;
     }
-    /**
-     * 🌟 US 3 : Expose toutes les dérives thermiques actives sous forme d'objet JSON { [serverId]: valeur }
-     */
     getAllThermalDrifts() {
         return Object.fromEntries(this.activeThermalDrifts);
     }
@@ -48,7 +37,7 @@ class ScenarioService {
         this.currentTick = 0;
         this.activeThermalDrifts.clear();
         this.pendingRepairs.clear();
-        this.currentLoadMultiplier = 1.0; // Réinitialisation de la charge
+        this.currentLoadMultiplier = 1.0;
         console.log(`📖 Scénario armé : ${this.activeScenario.name}`);
         this.io.emit("scenario_started", { name: found.name, description: found.description });
     }
@@ -59,50 +48,72 @@ class ScenarioService {
         for (const [fanId, repair] of this.pendingRepairs.entries()) {
             repair.remainingTicks--;
             if (repair.remainingTicks > 0) {
-                console.log(`🔧 [MAINTENANCE] Ventilateur ${fanId} en cours de remplacement (Arrivée du technicien dans ${repair.remainingTicks} ticks...)`);
+                console.log(`🔧 [MAINTENANCE] Ventilateur ${fanId} en cours de remplacement...`);
                 this.io.emit("maintenance_progress", { fanId, remainingTicks: repair.remainingTicks });
             }
             else {
-                await this.prisma.fan.update({
-                    where: { fan_id: fanId },
-                    data: { status: 'ON', control_mode: 'AUTO', speed_percent: 20 }
-                });
-                this.clearDriftForServer(repair.serverId);
-                this.pendingRepairs.delete(fanId);
-                console.log(`✅ [MAINTENANCE SUCCÈS] Remplacement du Ventilateur ${fanId} terminé.`);
-                this.io.emit("maintenance_complete", { fanId, serverId: repair.serverId });
+                try {
+                    await this.prisma.fan.update({
+                        where: { fan_id: fanId },
+                        data: { status: 'ON', control_mode: 'AUTO', speed_percent: 20 }
+                    });
+                    this.clearDriftForServer(repair.serverId);
+                    console.log(`✅ [MAINTENANCE SUCCÈS] Remplacement du Ventilateur ${fanId} terminé.`);
+                    this.io.emit("maintenance_complete", { fanId, serverId: repair.serverId });
+                }
+                catch (e) {
+                    console.warn(`⚠️ [MAINTENANCE] Impossible de réparer le fan ${fanId} (ID obsolète pour cette topologie).`);
+                }
+                finally {
+                    this.pendingRepairs.delete(fanId);
+                }
             }
         }
         if (!this.activeScenario)
             return;
         const eventsToRun = this.activeScenario.events.filter(e => e.tick === this.currentTick);
         for (const event of eventsToRun) {
-            console.log(`⚠️ ÉVÈNEMENT SCÉNARIO ENCLENCHÉ : [${event.type}] (Cible: ${event.targetId ?? 'ALL'})`);
+            console.log(`⚠️ ÉVÈNEMENT SCÉNARIO ENCLENCHÉ : [${event.type}]`);
             this.io.emit("scenario_event_triggered", event);
-            switch (event.type) {
-                case 'CRASH_FAN':
-                    if (event.targetId) {
-                        await this.prisma.fan.update({
-                            where: { fan_id: event.targetId },
-                            data: { speed_percent: 0, control_mode: 'MANUAL', status: 'ON' }
-                        });
-                    }
-                    break;
-                case 'LOAD_SPIKE_ALL':
-                    if (event.value !== undefined) {
-                        // 🌟 Enregistre le multiplicateur (ex: 1.5 pour +50% de trafic)
-                        this.currentLoadMultiplier = event.value;
-                        await this.prisma.sensor.updateMany({
-                            where: { sensor_type: 'LOAD' },
-                            data: { last_value: event.value * 50 } // Conservation de la valeur indicative en BDD
-                        });
-                    }
-                    break;
-                case 'THERMAL_DRIFT_SERVER':
-                    if (event.targetId && event.value !== undefined) {
-                        this.activeThermalDrifts.set(event.targetId, event.value);
-                    }
-                    break;
+            // 🌟 US 1/3 SÉCURITÉ : Protection globale contre les IDs absents de la topologie courante
+            try {
+                switch (event.type) {
+                    case 'CRASH_FAN':
+                        if (event.targetId) {
+                            await this.prisma.fan.update({
+                                where: { fan_id: event.targetId },
+                                data: { speed_percent: 0, control_mode: 'MANUAL', status: 'ON' }
+                            });
+                            console.log(`💥 [SCÉNARIO] Le ventilateur ${event.targetId} a été saboté.`);
+                        }
+                        break;
+                    case 'LOAD_SPIKE_ALL':
+                        if (event.value !== undefined) {
+                            this.currentLoadMultiplier = event.value;
+                            await this.prisma.sensor.updateMany({
+                                where: { sensor_type: 'LOAD' },
+                                data: { last_value: event.value * 50 }
+                            });
+                        }
+                        break;
+                    case 'THERMAL_DRIFT_SERVER':
+                        if (event.targetId && event.value !== undefined) {
+                            // On vérifie d'abord si le serveur existe dans notre topologie de test actuelle
+                            const serverExists = await this.prisma.server.findUnique({ where: { server_id: event.targetId } });
+                            if (serverExists) {
+                                this.activeThermalDrifts.set(event.targetId, event.value);
+                                console.log(`🔥 [SCÉNARIO] Dérive thermique (+${event.value}°C) appliquée au serveur ${event.targetId}`);
+                            }
+                            else {
+                                console.warn(`⏭️ [SCÉNARIO] Serveur cible ${event.targetId} absent de la topologie active. Événement ignoré.`);
+                            }
+                        }
+                        break;
+                }
+            }
+            catch (prismaError) {
+                // L'erreur est interceptée ici : la simulation continue sa course !
+                console.warn(`⏭️ [SCÉNARIO] Échec de l'événement ${event.type} pour la cible ${event.targetId} (Composant absent de la topologie). La simulation continue.`);
             }
         }
     }
@@ -124,7 +135,7 @@ class ScenarioService {
         this.currentTick = 0;
         this.activeThermalDrifts.clear();
         this.pendingRepairs.clear();
-        this.currentLoadMultiplier = 1.0; // 🌟 Reset du multiplicateur au nettoyage
+        this.currentLoadMultiplier = 1.0;
         console.log("♻️ Scénario nettoyé et dérives réinitialisées.");
     }
 }
