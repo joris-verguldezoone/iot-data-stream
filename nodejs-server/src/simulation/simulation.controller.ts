@@ -4,6 +4,7 @@ import SimulationService from "./simulation.service";
 import { ExerciseBuilderService } from "./exercise-builder.service";
 import { prisma } from "../prisma/prisma";
 import { UpdateLoadProfileDTO, UpdateLoadProfileSchema } from "../cluster/load-profile.dto";
+import { Type } from "@sinclair/typebox";
 
 export default async function simulationController(fastify: FastifyInstance) {
     let timer: NodeJS.Timeout | undefined = undefined;
@@ -14,11 +15,11 @@ export default async function simulationController(fastify: FastifyInstance) {
     const ONE_WEEK_MINUTES = 7 * 24 * 60; // 10 080 minutes (7 jours)
 
     function stopExistingSimulation() {
-    if (timer) {
-        clearInterval(timer);
-        timer = undefined;
+        if (timer) {
+            clearInterval(timer);
+            timer = undefined;
+        }
     }
-}
 
     /**
      * GET /internal/cadence
@@ -38,14 +39,13 @@ export default async function simulationController(fastify: FastifyInstance) {
      * POST /sim/scenarios/marseille
      * Lance le scénario Marseille avec cadence, durée de ticks et date de départ ajustables
      */
-    fastify.post<{ Querystring: { persist?: boolean; cadence?: number; tickDuration?: string; startDate?: string } }>('/sim/scenarios/marseille', {
+    fastify.post<{ Querystring: { cadence?: number; tickDuration?: string; startDate?: string } }>('/sim/scenarios/marseille', {
         schema: { 
             tags: ['Simulation'], 
             description: 'Arme le scénario de Marseille à horaire fixe (Lundi par défaut) et démarre la boucle à vitesse configurable',
             querystring: {
                 type: 'object',
                 properties: {
-                    persist: { type: 'boolean', default: false },
                     cadence: { type: 'number', enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 5 },
                     tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h' },
                     startDate: { type: 'string' }
@@ -53,7 +53,6 @@ export default async function simulationController(fastify: FastifyInstance) {
             }
         }
     }, async (req, reply) => {
-        const persist = req.query.persist !== false; 
         const cadenceSeconds = req.query.cadence ?? 5;
         const tickDuration = req.query.tickDuration ?? '1h';
 
@@ -92,7 +91,7 @@ export default async function simulationController(fastify: FastifyInstance) {
         timer = setInterval(async () => {
             try {
                 const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
-                await service.simulateTick({ persist, tickDuration });
+                await service.simulateTick({ tickDuration });
                 
                 virtualMinutesElapsed += minutesPerTick;
                 
@@ -123,36 +122,33 @@ export default async function simulationController(fastify: FastifyInstance) {
     /**
      * POST /sim/tick
      */
-    fastify.post<{ Querystring: { persist?: boolean; tickDuration?: string } }>('/sim/tick', {
+    fastify.post<{ Querystring: { tickDuration?: string } }>('/sim/tick', {
         schema: { 
             tags: ['Simulation'], 
             querystring: {
                 type: 'object',
                 properties: {
-                    persist: { type: 'boolean', default: false },
                     tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h' }
                 }
             }
         }
     }, async (req) => {
-        const persist = req.query.persist === true;
         const tickDuration = req.query.tickDuration ?? '1h';
         
         const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
-        await service.simulateTick({ persist, tickDuration });
+        await service.simulateTick({ tickDuration });
         return { status: 'success', message: `Pas de temps manuel exécuté (${tickDuration}).` };
     });
 
     /**
      * POST /sim/start
      */
-    fastify.post<{ Querystring: { persist?: boolean; cadence?: number; tickDuration?: string; startDate?: string } }>('/sim/start', {
+    fastify.post<{ Querystring: { cadence?: number; tickDuration?: string; startDate?: string } }>('/sim/start', {
         schema: { 
             tags: ['Simulation'], 
             querystring: {
                 type: 'object',
                 properties: {
-                    persist: { type: 'boolean', default: false },
                     cadence: { type: 'number', enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 5 },
                     tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h' },
                     startDate: { type: 'string' }
@@ -162,7 +158,6 @@ export default async function simulationController(fastify: FastifyInstance) {
     }, async (req) => {
         stopExistingSimulation();
         virtualMinutesElapsed = 0;
-        const persist = req.query.persist === true;
         const cadenceSeconds = req.query.cadence ?? 5;
         const tickDuration = req.query.tickDuration ?? '1h';
         
@@ -198,7 +193,7 @@ export default async function simulationController(fastify: FastifyInstance) {
         timer = setInterval(async () => {
             try {
                 const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
-                await service.simulateTick({ persist, tickDuration });
+                await service.simulateTick({ tickDuration });
                 virtualMinutesElapsed += minutesPerTick;
                 
                 if (virtualMinutesElapsed >= ONE_WEEK_MINUTES) {
@@ -250,15 +245,32 @@ export default async function simulationController(fastify: FastifyInstance) {
 
     /**
      * POST /sim/maintenance/repair
+     * Déclenche un ordre de maintenance pour envoyer une équipe technique virtuelle.
      */
     fastify.post<{ Body: { fanId: number } }>('/sim/maintenance/repair', {
-        schema: { tags: ['Simulation'] }
-    }, async (req, reply) => {
+        schema: {
+            tags: ['Simulation'],
+            summary: '🔧 Envoyer l\'équipe de maintenance virtuelle',
+            description: 'Déclenche une intervention sur un ventilateur en panne mécanique. Applique un délai incompressible de 4 ticks de simulation (le temps d\'accès en salle blanche) avant réparation effective.',
+            body: Type.Object({
+                fanId: Type.Integer({ 
+                    description: 'L\'identifiant unique (ID) du ventilateur physique en panne à remplacer',
+                    example: 1 
+                })
+            }),
+            response: {
+                200: Type.Object({
+                    success: Type.Boolean(),
+                    message: Type.String()
+                })
+            }
+        }
+    }, async (req) => {
         const { fanId } = req.body;
         const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
-        const result = await service.repairFan(fanId);
-        if (!result.success) return reply.status(404).send({ status: 'error', message: result.message });
-        return { status: 'success', message: result.message };
+
+        const result = await service.repairFan(Number(fanId));
+        return result;
     });
 
     /**

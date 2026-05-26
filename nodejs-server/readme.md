@@ -19,3 +19,4 @@ npx prisma migrate reset
 
 docker compose exec -t timescaledb pg_dump -U tsuser -d tsdb > datacenter_backup.sql
 
+

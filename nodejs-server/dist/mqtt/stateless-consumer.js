@@ -3,8 +3,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.producer = exports.kafka = void 0;
 const mqtt_1 = __importDefault(require("mqtt"));
 const prisma_1 = require("../prisma/prisma");
+const kafka_ts_1 = require("kafka-ts");
+exports.kafka = (0, kafka_ts_1.createKafkaClient)({
+    clientId: 'my-app',
+    bootstrapServers: [{ host: 'localhost', port: 9092 }],
+});
+exports.producer = exports.kafka.createProducer();
 const client = mqtt_1.default.connect(process.env.MQTT_URL || 'mqtt://mosquitto:1883');
 // 🌟 On écoute le topic de la passerelle
 const TOPIC_TELEMETRIE = 'v1/gateway/telemetry/#';
@@ -28,11 +35,14 @@ client.on('message', async (topic, message) => {
             // 🌟 PROTECTION CHIRURGICALE POUR LES RESETS DE TOPOLOGIE
             try {
                 console.log(`➔ [DB TRY] Tentative d'insertion pour le capteur ${sensorId} (Valeur: ${sensorValue})...`);
+                // on publie sur Kafka 
                 // Insertion de chaque métrique
                 await prisma_1.prisma.sensorData.create({
                     data: { sensor_id: sensorId, value: sensorValue, time: virtualTime }
                 });
                 console.log(`  ✔ [DB SUCCESS] Capteur ${sensorId} inséré avec succès !`);
+                // stockage chaud 
+                await exports.producer.send([{ topic: 'my-topic', key: 'key', value: 'value' }]);
                 await prisma_1.prisma.sensor.update({
                     where: { sensor_id: sensorId },
                     data: { last_value: sensorValue }

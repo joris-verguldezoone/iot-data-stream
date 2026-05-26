@@ -37,14 +37,4 @@ export default async function agentController(fastify: FastifyInstance) {
             }
         }
     };
-    // POST /agent/action -> Commandes de l'IA
-    fastify.post('/action', { schema: actionSchema }, async (request, reply) => {
-        const { actions } = request.body as any;
-        
-        await agentService.applyActions(actions);
-        return reply.code(201).send({ 
-            status: "applied", 
-            count: actions.length 
-        });
-    });
 }

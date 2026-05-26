@@ -2,14 +2,21 @@ Voici l'état actuel de mon projet Dota 2 Strategy Sandbox.
 
 ### FICHIER : entrypoint.sh ###
 ```sh
-#!/bin/sh
-# On lance la synchro Prisma
-echo "🚀 Lancement de l'initialisation Prisma..."
-npx prisma db push --accept-data-loss
+#!/sh
+echo "🚀 Lancement de l'initialisation du DataCenter..."
 
-echo "✅ Schéma synchronisé. Exécution de la commande demandée..."
+# Boucle d'attente : tant que Prisma ne peut pas se connecter à la DB, on patine
+until npx prisma db push --accept-data-loss; do
+  echo "⏳ PostgreSQL initialise ses volumes, nouvelle tentative dans 2 secondes..."
+  sleep 2
+done
 
-# Le "exec $@" est CRUCIAL : il lance la commande définie dans le docker-compose
+echo "✅ Schéma mis à jour avec succès dans PostgreSQL !"
+
+# Génération obligatoire du client Prisma mis à jour
+npx prisma generate
+
+echo "🏃 Exec de la commande finale..."
 exec "$@"
 ```
 
@@ -36,6 +43,7 @@ exec "$@"
         "fastify": "^5.6.2",
         "fastify-type-provider-zod": "^6.1.0",
         "fs-extra": "^11.3.5",
+        "kafka-ts": "^1.3.2",
         "lodash": "^4.17.21",
         "mqtt": "^5.15.1",
         "pg": "^8.18.0",
@@ -46,7 +54,7 @@ exec "$@"
       "devDependencies": {
         "@types/fs-extra": "^11.0.4",
         "@types/lodash": "^4.17.21",
-        "@types/node": "^24.12.2",
+        "@types/node": "^24.12.4",
         "@types/pg": "^8.16.0",
         "prisma": "^7.7.0",
         "ts-node": "^10.9.2",
@@ -1303,9 +1311,9 @@ exec "$@"
       "license": "MIT"
     },
     "node_modules/@types/node": {
-      "version": "24.12.2",
-      "resolved": "https://registry.npmjs.org/@types/node/-/node-24.12.2.tgz",
-      "integrity": "sha512-A1sre26ke7HDIuY/M23nd9gfB+nrmhtYyMINbjI1zHJxYteKR6qSMX56FsmjMcDb3SMcjJg5BiRRgOCC/yBD0g==",
+      "version": "24.12.4",
+      "resolved": "https://registry.npmjs.org/@types/node/-/node-24.12.4.tgz",
+      "integrity": "sha512-GUUEShf+PBCGW2KaXwcIt3Yk+e3pkKwWKb9GSyM9WQVE+ep2jzmHdGsHzu4wgcZy5fN9FBdVzjpBQsYlpfpgLA==",
       "license": "MIT",
       "dependencies": {
         "undici-types": "~7.16.0"
@@ -1545,9 +1553,9 @@ exec "$@"
       }
     },
     "node_modules/brace-expansion": {
-      "version": "5.0.5",
-      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.5.tgz",
-      "integrity": "sha512-VZznLgtwhn+Mact9tfiwx64fA9erHH/MCXEUfB/0bX/6Fz6ny5EGTXYltMocqg4xFAQZtnO3DHWWXi8RiuN7cQ==",
+      "version": "5.0.6",
+      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.6.tgz",
+      "integrity": "sha512-kLpxurY4Z4r9sgMsyG0Z9uzsBlgiU/EFKhj/h91/8yHu0edo7XuixOIH3VcJ8kkxs6/jPzoI6U9Vj3WqbMQ94g==",
       "license": "MIT",
       "dependencies": {
         "balanced-match": "^4.0.2"
@@ -1876,9 +1884,9 @@ exec "$@"
       }
     },
     "node_modules/engine.io": {
-      "version": "6.6.7",
-      "resolved": "https://registry.npmjs.org/engine.io/-/engine.io-6.6.7.tgz",
-      "integrity": "sha512-DgOngfDKM2EviOH3Mr9m7ks1q8roetLy/IMmYthAYzbpInMbYc/GS+fWFA3rl1gvwKVsQrVV61fo5emD1y3OJQ==",
+      "version": "6.6.8",
+      "resolved": "https://registry.npmjs.org/engine.io/-/engine.io-6.6.8.tgz",
+      "integrity": "sha512-2agL3ueZhqxoVrfmntO8yuVj+uNSlIOnhykYHk3Cq0ShYPdUjjUiSJrQvXjq01I9jAuI0Zl2YO8Evv5Mqytm5g==",
       "license": "MIT",
       "dependencies": {
         "@types/cors": "^2.8.12",
@@ -1890,7 +1898,7 @@ exec "$@"
         "cors": "~2.8.5",
         "debug": "~4.4.1",
         "engine.io-parser": "~5.2.1",
-        "ws": "~8.18.3"
+        "ws": "~8.20.1"
       },
       "engines": {
         "node": ">=10.2.0"
@@ -1912,27 +1920,6 @@ exec "$@"
       "license": "MIT",
       "engines": {
         "node": ">= 0.6"
-      }
-    },
-    "node_modules/engine.io/node_modules/ws": {
-      "version": "8.18.3",
-      "resolved": "https://registry.npmjs.org/ws/-/ws-8.18.3.tgz",
-      "integrity": "sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg==",
-      "license": "MIT",
-      "engines": {
-        "node": ">=10.0.0"
-      },
-      "peerDependencies": {
-        "bufferutil": "^4.0.1",
-        "utf-8-validate": ">=5.0.2"
-      },
-      "peerDependenciesMeta": {
-        "bufferutil": {
-          "optional": true
-        },
-        "utf-8-validate": {
-          "optional": true
-        }
       }
     },
     "node_modules/env-paths": {
@@ -2515,6 +2502,12 @@ exec "$@"
       "optionalDependencies": {
         "graceful-fs": "^4.1.6"
       }
+    },
+    "node_modules/kafka-ts": {
+      "version": "1.3.2",
+      "resolved": "https://registry.npmjs.org/kafka-ts/-/kafka-ts-1.3.2.tgz",
+      "integrity": "sha512-hyGBURxo9CTfctiVjYZYxl21CeLVdZXaVav0t6cg90DLwqNF/w3WqyEAtWAn6rEvZz/AD/845i+aqhkPQMkEMA==",
+      "license": "MIT"
     },
     "node_modules/light-my-request": {
       "version": "6.6.0",
@@ -3489,34 +3482,13 @@ exec "$@"
       }
     },
     "node_modules/socket.io-adapter": {
-      "version": "2.5.6",
-      "resolved": "https://registry.npmjs.org/socket.io-adapter/-/socket.io-adapter-2.5.6.tgz",
-      "integrity": "sha512-DkkO/dz7MGln0dHn5bmN3pPy+JmywNICWrJqVWiVOyvXjWQFIv9c2h24JrQLLFJ2aQVQf/Cvl1vblnd4r2apLQ==",
+      "version": "2.5.7",
+      "resolved": "https://registry.npmjs.org/socket.io-adapter/-/socket.io-adapter-2.5.7.tgz",
+      "integrity": "sha512-e0LyK91f3cUxTmv95/KzoLg47+zF+s/sbxRGDNsyG4dmIP8ZSX8ax6byOxfJXeNNtS/8AZlfD+uP7gBeR7DLlg==",
       "license": "MIT",
       "dependencies": {
         "debug": "~4.4.1",
-        "ws": "~8.18.3"
-      }
-    },
-    "node_modules/socket.io-adapter/node_modules/ws": {
-      "version": "8.18.3",
-      "resolved": "https://registry.npmjs.org/ws/-/ws-8.18.3.tgz",
-      "integrity": "sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg==",
-      "license": "MIT",
-      "engines": {
-        "node": ">=10.0.0"
-      },
-      "peerDependencies": {
-        "bufferutil": "^4.0.1",
-        "utf-8-validate": ">=5.0.2"
-      },
-      "peerDependenciesMeta": {
-        "bufferutil": {
-          "optional": true
-        },
-        "utf-8-validate": {
-          "optional": true
-        }
+        "ws": "~8.20.1"
       }
     },
     "node_modules/socket.io-parser": {
@@ -3835,9 +3807,9 @@ exec "$@"
       }
     },
     "node_modules/ws": {
-      "version": "8.20.0",
-      "resolved": "https://registry.npmjs.org/ws/-/ws-8.20.0.tgz",
-      "integrity": "sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA==",
+      "version": "8.20.1",
+      "resolved": "https://registry.npmjs.org/ws/-/ws-8.20.1.tgz",
+      "integrity": "sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w==",
       "license": "MIT",
       "engines": {
         "node": ">=10.0.0"
@@ -3916,45 +3888,7 @@ exec "$@"
 
 ### FICHIER : package.json ###
 ```json
-{
-"scripts": {
-  "build": "tsc && node -e \"const fs = require('fs'); fs.mkdirSync('dist/data_seed', { recursive: true }); fs.copyFileSync('src/data_seed/scenarios.json', 'dist/data_seed/scenarios.json');\"",
-  "start": "node dist/server.js",
-  "seed:telemetry": "npm run build && node dist/prisma/seed-telemetry.js"
-},
-  "devDependencies": {
-    "@types/fs-extra": "^11.0.4",
-    "@types/lodash": "^4.17.21",
-    "@types/node": "^24.12.2",
-    "@types/pg": "^8.16.0",
-    "prisma": "^7.7.0",
-    "ts-node": "^10.9.2",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "@fast-csv/format": "^5.0.5",
-    "@fastify/cors": "^11.1.0",
-    "@fastify/static": "^9.1.3",
-    "@fastify/swagger": "^9.7.0",
-    "@fastify/swagger-ui": "^5.2.5",
-    "@prisma/adapter-pg": "^7.4.1",
-    "@prisma/client": "^7.8.0",
-    "@prisma/config": "^7.7.0",
-    "@sinclair/typebox": "^0.34.49",
-    "dotenv": "^17.3.1",
-    "fastify": "^5.6.2",
-    "fastify-type-provider-zod": "^6.1.0",
-    "fs-extra": "^11.3.5",
-    "lodash": "^4.17.21",
-    "mqtt": "^5.15.1",
-    "pg": "^8.18.0",
-    "reflect-metadata": "^0.2.2",
-    "socket.io": "^4.8.3",
-    "zod": "^4.4.3"
-  }
-}
-
+{"scripts":{"build":"tsc && node -e \"const fs = require('fs'); fs.mkdirSync('dist/data_seed', { recursive: true }); fs.copyFileSync('src/data_seed/scenarios.json', 'dist/data_seed/scenarios.json');\"","start":"node dist/server.js","seed:telemetry":"npm run build && node dist/prisma/seed-telemetry.js"},"devDependencies":{"@types/fs-extra":"^11.0.4","@types/lodash":"^4.17.21","@types/node":"^24.12.4","@types/pg":"^8.16.0","prisma":"^7.7.0","ts-node":"^10.9.2","tsx":"^4.21.0","typescript":"^5.9.3"},"dependencies":{"@fast-csv/format":"^5.0.5","@fastify/cors":"^11.1.0","@fastify/static":"^9.1.3","@fastify/swagger":"^9.7.0","@fastify/swagger-ui":"^5.2.5","@prisma/adapter-pg":"^7.4.1","@prisma/client":"^7.8.0","@prisma/config":"^7.7.0","@sinclair/typebox":"^0.34.49","dotenv":"^17.3.1","fastify":"^5.6.2","fastify-type-provider-zod":"^6.1.0","fs-extra":"^11.3.5","kafka-ts":"^1.3.2","lodash":"^4.17.21","mqtt":"^5.15.1","pg":"^8.18.0","reflect-metadata":"^0.2.2","socket.io":"^4.8.3","zod":"^4.4.3"}}
 ```
 
 ### FICHIER : prisma.config.ts ###
@@ -3992,7 +3926,10 @@ export default async function agentController(fastify: FastifyInstance) {
     });
 
     // Définition du schéma pour la route action
+
     const actionSchema = {
+        tags: ['Agent IA'],
+        description: 'Permet à l\'IA d\'envoyer des commandes de régulation (Brider la charge ou forcer les ventilateurs)',
         body: {
             type: 'object',
             required: ['actions'],
@@ -4012,7 +3949,6 @@ export default async function agentController(fastify: FastifyInstance) {
             }
         }
     };
-
     // POST /agent/action -> Commandes de l'IA
     fastify.post('/action', { schema: actionSchema }, async (request, reply) => {
         const { actions } = request.body as any;
@@ -4028,12 +3964,12 @@ export default async function agentController(fastify: FastifyInstance) {
 
 ### FICHIER : src/agent/agent.service.ts ###
 ```ts
-// src/services/AgentService.ts
-import { PrismaClient, Server, Sensor, Fan } from "@prisma/client";
-import { Server as SocketServer } from "socket.io"; // ✅ Import pour le typage
-/**
- * Types pour structurer l'observation renvoyée à l'IA
- */
+// src/agent/agent.service.ts
+import { PrismaClient } from "@prisma/client";
+import { Server as SocketServer } from "socket.io";
+import _ from "lodash";
+import { getLiveWeather } from "../openweatherapi/service"; // 🚨 Connexion à ton API météo réelle
+
 export interface AgentObservation {
     serverId: number;
     hostname: string;
@@ -4060,38 +3996,55 @@ export class AgentService {
     constructor(private prisma: PrismaClient, private io = new SocketServer()) {}
 
     /**
-     * Récupère l'état complet de l'environnement pour l'IA
+     * Récupère l'état complet de l'environnement pour le script Python (Flux chaud)
      */
     async getEnvironmentState(): Promise<EnvironmentState> {
         const servers = await this.prisma.server.findMany({
             include: { 
                 sensors: true, 
-                fans: true 
+                fans: true,
+                cluster: { include: { clusterLocation: true } }
             }
         });
 
         const observations = servers.map(s => this.mapServerToObservation(s));
         
-        // Calcul des métriques globales
+        // 1. Calcul des agrégats IT et thermiques instantanés
         const totalPower = observations.reduce((acc, obs) => acc + obs.powerWatts, 0);
-        const avgTemp = observations.reduce((acc, obs) => acc + obs.cpuTemp, 0) / servers.length;
-        const currentPue = this.calculatePUE(totalPower, avgTemp);
+        const avgTemp = observations.reduce((acc, obs) => acc + obs.cpuTemp, 0) / (servers.length || 1);
+
+        // 2. Détermination de la météo extérieure (basée sur la localisation du premier serveur)
+        const cityName = servers[0]?.cluster?.clusterLocation?.name || "Paris";
+        let externalWeatherTemp = 15.0; // Valeur de repli par défaut (Anti-crash si l'API est hors-ligne)
+        try {
+            externalWeatherTemp = await getLiveWeather(cityName);
+        } catch (err) {
+            // Silencieux pour éviter de bloquer la boucle des étudiants en cas de timeout OpenWeather
+        }
+
+        // 3. Application de la formule Option B (Météo extérieure + Surchauffe CPU)
+        const baseInfrastructureFactor = 0.25; 
+        const weatherPenalty = externalWeatherTemp > 15.0 ? (externalWeatherTemp - 15.0) * 0.008 : 0.0;
+        const serverHeatingPenalty = avgTemp > 40.0 ? (avgTemp - 40.0) * 0.005 : 0.0;
+
+        const currentPue = Number(_.clamp(1.0 + baseInfrastructureFactor + weatherPenalty + serverHeatingPenalty, 1.15, 2.50).toFixed(3));
+        const totalFacilityPower = totalPower * currentPue;
 
         return {
             timestamp: new Date(),
             observations,
             globalMetrics: {
                 pue: currentPue,
-                totalPower: Number(totalPower.toFixed(2)),
+                totalPower: Number(totalFacilityPower.toFixed(1)),
                 averageTemp: Number(avgTemp.toFixed(1))
             },
             reward: this.computeReward(observations, currentPue),
-            isTerminal: servers.some(s => s.status === 'OFF')
+            isTerminal: servers.some(s => s.status === 'OFF') // Partie perdue si un serveur subit un crash
         };
     }
 
     /**
-     * Applique les décisions prises par l'IA
+     * Applique les ordres d'action envoyés par l'IA des étudiants
      */
     async applyActions(actions: { type: string, id: number, value: number }[]): Promise<void> {
         for (const action of actions) {
@@ -4101,13 +4054,12 @@ export class AgentService {
                         where: { fan_id: action.id },
                         data: { 
                             speed_percent: Math.round(action.value),
-                            control_mode: 'MANUAL' // L'IA prend la main sur l'automate
+                            control_mode: 'MANUAL'
                         }
                     });
                     break;
                 
                 case 'SET_SERVER_LOAD':
-                    // Utile pour tester la migration de charge (VM Migration)
                     await this.prisma.sensor.updateMany({
                         where: { server_id: action.id, sensor_type: 'LOAD' },
                         data: { last_value: action.value }
@@ -4115,16 +4067,13 @@ export class AgentService {
                     break;
             }
             this.io.emit('agent_action_applied', {
-            type: action.type,
-            targetId: action.id,
-            newValue: action.value
-        });
+                type: action.type,
+                targetId: action.id,
+                newValue: action.value
+            });
         }
     }
 
-    /**
-     * Logique de mapping : extrait les valeurs des capteurs pour un serveur donné
-     */
     private mapServerToObservation(server: any): AgentObservation {
         const getSensorValue = (type: string) => 
             server.sensors.find((s: any) => s.sensor_type.toUpperCase() === type)?.last_value || 0;
@@ -4141,48 +4090,35 @@ export class AgentService {
     }
 
     /**
-     * Calcul du PUE (Power Usage Effectiveness)
-     */
-    private calculatePUE(itPower: number, avgTemp: number): number {
-        if (itPower <= 0) return 1.0;
-        // On simule un overhead de climatisation basé sur la température
-        const coolingOverhead = avgTemp > 25 ? (avgTemp - 25) * (itPower * 0.08) : itPower * 0.05;
-        const infrastructureLosses = itPower * 0.1;
-        
-        return Number(((itPower + coolingOverhead + infrastructureLosses) / itPower).toFixed(3));
-    }
-
-    /**
-     * Fonction de récompense (Reward) pour le Reinforcement Learning
-     * Encourage un PUE bas sans sacrifier la sécurité thermique.
+     * Calcule le score de performance (Reward) de l'étudiant
      */
     private computeReward(obs: AgentObservation[], pue: number): number {
-        // Formule de base : R = (2.0 - PUE) * 10
+        // Bonus inversement proportionnel au PUE (Plus le PUE est proche de 1, plus le score monte)
         let reward = (2.0 - pue) * 10;
 
         for (const server of obs) {
-            // Pénalité progressive si la température dépasse 75°C
+            // Malus si un processeur surchauffe (Seuil d'alerte à 75°C)
             if (server.cpuTemp > 75) {
-                reward -= (server.cpuTemp - 75) * 2;
+                reward -= (server.cpuTemp - 75) * 2.0;
             }
             
-            // Pénalité massive si le serveur est éteint (Crash)
+            // Énorme pénalité financière et opérationnelle si la machine s'éteint
             if (server.status === 'OFF') {
-                reward -= 500;
+                reward -= 500.0;
             }
         }
 
         return Number(reward.toFixed(4));
     }
         
+    /**
+     * Conservé à 100% : Outil d'analyse statistique d'historique pour la détection de dérives
+     */
     async getContextualObservation(sensorId: number) {
-        // 1. Récupération de la valeur actuelle
         const sensor = await this.prisma.sensor.findUnique({ 
             where: { sensor_id: sensorId } 
         });
 
-        // 2. Récupération de la baseline (moyenne historique)
-        // Note : on caste le résultat car $queryRaw renvoie un type 'unknown'
         const stats = await this.prisma.$queryRaw<any[]>`
             SELECT avg_temp 
             FROM sensor_stats_hourly 
@@ -4191,8 +4127,6 @@ export class AgentService {
             LIMIT 1
         `;
 
-        // 3. Normalisation et sécurité
-        // On utilise 30.0 comme baseline par défaut (température ambiante standard)
         const current = sensor?.last_value ?? 30.0;
         const baseline = stats[0]?.avg_temp ?? 30.0;
 
@@ -4200,8 +4134,6 @@ export class AgentService {
             sensorId,
             current,
             baseline,
-            // Écart : valeur positive = surchauffe par rapport à l'habitude
-            // On arrondit pour éviter les flottants infinis (0.10000000004)
             deviation: Number((current - baseline).toFixed(2))
         };
     }
@@ -4628,16 +4560,6 @@ export type ClusterConfiguration = Static<typeof ClusterConfigurationSchema>;
 export type CreateClusterConfigDTO = Static<typeof CreateClusterConfigSchema>;
 ```
 
-### FICHIER : src/cluster-configuration/cluster_configuration.controller.ts ###
-```ts
-// TODO routes
-```
-
-### FICHIER : src/cluster-configuration/cluster_configuration.services.ts ###
-```ts
-// TODO 
-```
-
 ### FICHIER : src/cluster-location/cluster-location.dto.ts ###
 ```ts
 import { Type, Static } from '@sinclair/typebox';
@@ -4687,6 +4609,16 @@ export const Nullable = <T extends TSchema>(schema: T) => Type.Union([schema, Ty
 ```json
 [
   {
+    "id": "sc_marseille_gpu_melt",
+    "name": "🔥 [MARSEILLE] Canicule Phocéenne & Surcharge GPU (Milieu de semaine)",
+    "description": "Le datacenter démarre le lundi. Tout est normal pendant 2 jours. Le Mercredi à 04h00 (Tick 52), une surcharge applicative frappe les serveurs (Multiplié par 2). À 08h00 (Tick 56), la canicule crée une dérive thermique (+15°C) sur le srv-3. À midi (Tick 60), le ventilateur 9 lâche en plein pic de chaleur.",
+    "events": [
+      { "tick": 52, "type": "LOAD_SPIKE_ALL", "value": 2.0 },
+      { "tick": 56, "type": "THERMAL_DRIFT_SERVER", "targetId": 3, "value": 15.0 },
+      { "tick": 60, "type": "CRASH_FAN", "targetId": 9 }
+    ]
+  },
+  {
     "id": "op_fan_failure",
     "name": "Défaut Matériel : Panne Ventilateur",
     "description": "Arrêt mécanique d'un des ventilateurs de refroidissement sur le serveur srv-001.",
@@ -4699,7 +4631,7 @@ export const Nullable = <T extends TSchema>(schema: T) => Type.Union([schema, Ty
     "name": "Surcharge Opérationnelle : Hausse de Trafic",
     "description": "Soudaine vagues de requêtes hors production provoquant un pic de charge global.",
     "events": [
-      { "tick": 10, "type": "LOAD_SPIKE_ALL", "value": 90 }
+      { "tick": 10, "type": "LOAD_SPIKE_ALL", "value": 2.0 }
     ]
   },
   {
@@ -4708,6 +4640,40 @@ export const Nullable = <T extends TSchema>(schema: T) => Type.Union([schema, Ty
     "description": "Perte progressive de l'efficacité de dissipation thermique sur le nœud de calcul 2.",
     "events": [
       { "tick": 5, "type": "THERMAL_DRIFT_SERVER", "targetId": 2, "value": 1.5 }
+    ]
+  },
+  {
+    "id": "sc_cluster_high",
+    "name": "🔥 [HIGH-POWER] Stress-Test IA & Supercalculateur",
+    "description": "Simulation d'un entraînement massif de LLM. La charge informatique double, mettant à l'épreuve l'inertie des gros CPU.",
+    "events": [
+      { "tick": 5, "type": "LOAD_SPIKE_ALL", "value": 2.2 }
+    ]
+  },
+  {
+    "id": "sc_cluster_medium",
+    "name": "⚡ [MEDIUM-CLUSTER] Incident Électrique Alterné",
+    "description": "Une anomalie sur l'onduleur du Cluster Medium provoque des micro-coupures de charge suivies d'une surchauffe vicieuse (dérive thermique +2.0) sur les nœuds intermédiaires.",                                                                                                                                                                                                                                                                                                                                                                                               
+    "events": [
+      { "tick": 8, "type": "THERMAL_DRIFT_SERVER", "targetId": 3, "value": 2.0 }
+    ]
+  },
+  {
+    "id": "sc_cluster_small",
+    "name": "📡 [SMALL-EDGE] Coup de Chaleur sur Micro-Closet",
+    "description": "Scénario critique pour les petits routeurs / serveurs Edge en armoire de rue (Small). Le système de ventilation principal lâche au tick 12. Sans réaction rapide de l'élève pour brider la charge, le crash thermique est garanti.",
+    "events": [
+      { "tick": 12, "type": "CRASH_FAN", "targetId": 5 }
+    ]
+  },
+  {
+    "id": "sc_euro_cross_topology",
+    "name": "🌍 [TOPOLOGIE] Le Grand Chelem Européen (Multi-Villes)",
+    "description": "Scénario ultime configuré pour la topologie d'examen : Le Big Cluster de Paris subit un pic de charge (x2), le Medium de Marseille fait face à une dérive thermique (+2.5) liée à la chaleur du Sud, tandis que le Small d'Oslo subit une panne de ventilateur.",
+    "events": [
+      { "tick": 4, "type": "LOAD_SPIKE_ALL", "value": 2.0 },
+      { "tick": 8, "type": "THERMAL_DRIFT_SERVER", "targetId": 3, "value": 2.5 },
+      { "tick": 12, "type": "CRASH_FAN", "targetId": 5 }
     ]
   }
 ]
@@ -5085,147 +5051,199 @@ export const FAN_SEED: FanSeedItem[] = [
 
 ### FICHIER : src/mqtt/producer.ts ###
 ```ts
+// src/mqtt/producer.ts
 import "dotenv/config";
 import mqtt from "mqtt";
 import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../prisma/generated/prisma/index.js";
+import { PrismaClient } from '@prisma/client';
 import { OpenWeatherResponse } from "../openweatherapi/interfaces.js";
 
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
-const BROKER_URL = process.env.MQTT_URL || "mqtt://localhost:1883";
+const BROKER_URL = process.env.MQTT_URL || "mqtt://mosquitto:1883";
 const client = mqtt.connect(BROKER_URL);
 
-// --- PARAMÈTRES ---
-const TELEMETRY_INTERVAL = 10000; // 10 secondes (Envoi MQTT)
-const WEATHER_REFRESH_INTERVAL = 20 * 60 * 1000; // 20 minutes (Appel API)
+const WEATHER_REFRESH_INTERVAL = 20 * 60 * 1000; 
 const AC_TARGET = 20.0;
 const AC_EFFICIENCY = 0.92;
 
-// État global de la météo (température par ville)
 const globalWeather: Record<string, number> = {};
+let dynamicTelemetryInterval = 5000; 
 
-/**
- * Met à jour la météo pour toutes les villes uniques du parc
- */
+let fallbackSimulatedDate = new Date("2026-05-18T00:00:00.000Z");
+
 async function refreshAllCitiesWeather(cities: string[]) {
-  console.log(`☁️  Mise à jour météo pour ${cities.length} villes...`);
-  
   for (const city of cities) {
     try {
       const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${process.env.OPENWEATHER_API_KEY}`;
       const response = await fetch(url);
-      
-      if (response.status === 429) {
-        console.error("🚫 TROP DE REQUÊTES : Ta clé est limitée. Attends 1h.");
-        return;
-      }
-
-      if (!response.ok) throw new Error(`Erreur API pour ${city}`);
-      
+      if (!response.ok) throw new Error();
       const data = (await response.json()) as OpenWeatherResponse;
       globalWeather[city] = data.main.temp;
-      console.log(`📍 ${city} : ${data.main.temp}°C`);
-      
-      // Petit délai de sécurité entre chaque ville pour ne pas spammer
-      await new Promise(resolve => setTimeout(resolve, 500)); 
     } catch (err) {
-      console.error(`❌ Échec météo ${city}, utilisation valeur par défaut.`);
       globalWeather[city] = globalWeather[city] || 18.0;
     }
   }
 }
 
-function getAmbientTemp(externalTemp: number): number {
-  if (externalTemp <= AC_TARGET) return AC_TARGET;
-  return AC_TARGET + (externalTemp - AC_TARGET) * (1 - AC_EFFICIENCY);
-}
+client.on("connect", async () => {
+  console.log("✅ [MQTT-PRODUCER] Connecté au Broker Mosquitto.");
 
-async function startSimulation() {
-  console.log("📡 Connexion au Broker MQTT...");
+  const ALL_POSSIBLE_CITIES = ['Paris', 'Marseille', 'Frankfurt', 'Oslo', 'Dublin'];
+  await refreshAllCitiesWeather(ALL_POSSIBLE_CITIES);
+  setInterval(() => refreshAllCitiesWeather(ALL_POSSIBLE_CITIES), WEATHER_REFRESH_INTERVAL);
 
-  client.on("connect", async () => {
-    console.log("✅ Connecté au Broker.");
+const runLoop = async () => {
+    try {
+      let simulatedDate: Date;
+      let loadMultiplier = 1.0;
+      let thermalDrifts: Record<number, number> = {};
+      let isRunning = false; // 🌟 On ajoute le flag d'état
 
-    const servers = await prisma.server.findMany({
-      include: {
-        configuration: { include: { load_profile: true } },
-        sensors: true,
-        cluster: { include: { clusterLocation: true } }
+      try {
+        const response = await fetch("http://api-node:3333/internal/cadence");
+        if (response.ok) {
+          const syncData = (await response.json()) as any;
+          dynamicTelemetryInterval = syncData.cadenceMs ?? 5000;
+          loadMultiplier = syncData.loadMultiplier ?? 1.0;
+          thermalDrifts = syncData.thermalDrifts ?? {};
+          isRunning = syncData.isRunning ?? false; // 🌟 Récupération du flag depuis l'API Node
+
+          if (syncData.currentSimulatedDate) {
+            simulatedDate = new Date(syncData.currentSimulatedDate);
+            fallbackSimulatedDate = new Date(simulatedDate); 
+          } else {
+            fallbackSimulatedDate.setHours(fallbackSimulatedDate.getHours() + 1);
+            simulatedDate = new Date(fallbackSimulatedDate);
+          }
+        } else {
+          fallbackSimulatedDate.setHours(fallbackSimulatedDate.getHours() + 1);
+          simulatedDate = new Date(fallbackSimulatedDate);
+        }
+      } catch (apiError) {
+        fallbackSimulatedDate.setHours(fallbackSimulatedDate.getHours() + 1);
+        simulatedDate = new Date(fallbackSimulatedDate);
       }
-    });
 
-    // 1. Extraire les villes uniques
-    const uniqueCities = Array.from(new Set(
-      servers.map(s => s.cluster.clusterLocation.location || "Paris")
-    ));
+      // 🌟 SÉCURITÉ ABSOLUE : Si l'API Node dit que la simulation est sur PAUSE, on n'envoie RIEN !
+      if (!isRunning) {
+        console.log("💤 [MQTT-PRODUCER] Le jumeau numérique est en pause. En attente d'un top départ...");
+        return; // On stoppe l'itération ici, le bloc "finally" replanifiera la vérification au prochain coup
+      }
 
-    // 2. Premier appel météo IMMÉDIAT
-    await refreshAllCitiesWeather(uniqueCities);
+      const activeClusters = await prisma.cluster.findMany({
+        include: {
+          clusterLocation: true,
+          servers: { include: { sensors: true, fans: true } }
+        }
+      });
 
-    // 3. Cycle de mise à jour météo (Toutes les 20 minutes)
-    setInterval(() => refreshAllCitiesWeather(uniqueCities), WEATHER_REFRESH_INTERVAL);
+      const currentHour = simulatedDate.getHours();
 
-    console.log(`🚀 Simulation lancée pour ${servers.length} serveurs.`);
-
-    // 4. Cycle de télémétrie (Toutes les 10 secondes)
-    setInterval(async () => {
-      const currentHour = new Date().getHours();
-
-      for (const server of servers) {
-        const city = server.cluster.clusterLocation.location || "Paris";
-        
-        // On lit la température dans l'objet global (Pas d'appel API ici !)
+      for (const cluster of activeClusters) {
+        const city = cluster.clusterLocation.name;
         const tExt = globalWeather[city] || 18.0;
-        const tAmb = getAmbientTemp(tExt);
+        const tAmb = AC_TARGET + (tExt - AC_TARGET) * (1 - AC_EFFICIENCY);
 
-        const profileName = server.configuration?.load_profile?.name || "Standard_Cycle";
-        const currentProfile = await prisma.loadProfile.findUnique({
-          where: { name_hour: { name: profileName, hour: currentHour } }
+        // 🌟 Requête corrigée conforme à la table pivot du schéma
+        const profileRow = await prisma.loadProfile.findFirst({
+          where: {
+            hour: currentHour,
+            cluster_configurations: {
+              some: {
+                cluster_config_id: cluster.cluster_id
+              }
+            }
+          }
         });
+        const profileLoadFactor = (profileRow?.expected_load_percent ?? 20) / 100;
 
-        const load = currentProfile?.expected_load_percent || 0.2;
-        const targetMax = currentProfile?.target_temp_celsius || 70;
-        const baseTemp = tAmb + (load * (targetMax - tAmb));
+        for (const server of cluster.servers) {
+          const isMaster = server.hostname.toLowerCase().includes("master");
+          
+          let finalLoad = isMaster ? 0.12 : profileLoadFactor * loadMultiplier;
+          if (finalLoad > 1.0) finalLoad = 1.0;
+          if (finalLoad < 0.0) finalLoad = 0.0;
 
-        const payload = {
-          timestamp: new Date().toISOString(),
-          hostname: server.hostname,
-          environment: {
-            external_city: city,
-            external_temp: tExt.toFixed(1),
-            ambient_dc_temp: tAmb.toFixed(1)
-          },
-          load_percent: (load * 100).toFixed(2),
-          sensors: server.sensors.map(s => ({
-            id: s.sensor_id,
-            type: s.sensor_type,
-            value: (baseTemp + (Math.random() - 0.5) * 2).toFixed(2),
-            unit: s.unit
-          }))
-        };
+          let totalSpeed = 0;
+          let activeFansCount = 0;
+          for (const f of server.fans) {
+            if (f.status === "ON") {
+              totalSpeed += f.speed_percent;
+              activeFansCount++;
+            }
+          }
+          const fanSpeed = activeFansCount > 0 ? totalSpeed / server.fans.length : 0;
+          const drift = thermalDrifts[server.server_id] ?? 0.0;
 
-        client.publish(`v1/gateway/telemetry/${server.hostname}`, JSON.stringify(payload));
+          // 🌟 PHYSIQUE THERMIQUE PIMENTÉE ET RÉALISTE DU PRODUCTEUR
+          let computedTemp = tAmb + (finalLoad * 55) + drift;
+
+          if (fanSpeed > 0) {
+            const coolingPower = (fanSpeed / 100) * 25 * (finalLoad + 0.3);
+            computedTemp -= coolingPower;
+          }
+
+          if (computedTemp < tAmb) computedTemp = tAmb;
+          if (computedTemp > 105.0) computedTemp = 105.0;
+
+          const baseConsumption = 120; 
+          const maxConsumption = 450;  
+          const currentPower = baseConsumption + (finalLoad * (maxConsumption - baseConsumption)) + (fanSpeed * 0.6);
+
+          const payload = {
+            timestamp: simulatedDate.toISOString(),
+            hostname: server.hostname,
+            environment: { external_city: city, external_temp: tExt.toFixed(1), ambient_dc_temp: tAmb.toFixed(1) },
+            current_fan_speed: fanSpeed, 
+            load_percent: (finalLoad * 100).toFixed(2),
+            sensors: server.sensors.map(s => {
+              let finalValue = 0;
+              if (s.sensor_type === "CPU_TEMP") finalValue = computedTemp + (Math.random() - 0.5) * 0.3;
+              else if (s.sensor_type === "LOAD") finalValue = finalLoad * 100;
+              else if (s.sensor_type.startsWith("FAN_SPEED")) finalValue = fanSpeed; 
+              else if (s.sensor_type === "TOTAL_POWER") finalValue = currentPower;
+
+              return { id: s.sensor_id, type: s.sensor_type, value: finalValue.toFixed(2), unit: s.unit };
+            })
+          };
+
+          client.publish(`v1/gateway/telemetry/${server.hostname}`, JSON.stringify(payload));
+        }
       }
-      console.log(`[${new Date().toLocaleTimeString()}] 📤 Batch envoyé.`);
-    }, TELEMETRY_INTERVAL);
-  });
-}
+      
+      console.log(`[📤 MQTT] Télémétrie transmise pour la date virtuelle : ${simulatedDate.toISOString()}`);
 
-startSimulation().catch(console.error);
+    } catch (globalError) {
+      console.error("❌ CRASH TICK PRODUCER MQTT :", globalError);
+    } finally {
+      setTimeout(runLoop, dynamicTelemetryInterval);
+    }
+  };
+
+  setTimeout(runLoop, dynamicTelemetryInterval);
+});
 ```
 
 ### FICHIER : src/mqtt/statefull-consumer.ts ###
 ```ts
 import "dotenv/config";
 import mqtt from "mqtt";
-import { PrismaClient } from "../prisma/generated/prisma/index.js";
+import pg from "pg"; 
+import { PrismaPg } from "@prisma/adapter-pg"; 
+import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
-const client = mqtt.connect(process.env.MQTT_BROKER_URL || "mqtt://localhost:1883");
+// 🌟 ON REPREND LA CONFIG DU PRODUCER QUI FONCTIONNE
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
+
+// Connexion MQTT
+const BROKER_URL = process.env.MQTT_URL || "mqtt://mosquitto:1883";
+const client = mqtt.connect(BROKER_URL);
 
 client.on("connect", () => {
   console.log("📥 Consumer FULL connecté (Mode: Update + Insert)");
@@ -5264,34 +5282,64 @@ client.on("message", async (topic, message) => {
 
 ### FICHIER : src/mqtt/stateless-consumer.ts ###
 ```ts
-import "dotenv/config";
-import mqtt from "mqtt";
-import { PrismaClient } from "../prisma/generated/prisma/index.js";
+import mqtt from 'mqtt';
+import { prisma } from '../prisma/prisma';
 
-const prisma = new PrismaClient();
-const client = mqtt.connect(process.env.MQTT_BROKER_URL || "mqtt://localhost:1883");
+const client = mqtt.connect(process.env.MQTT_URL || 'mqtt://mosquitto:1883');
+// 🌟 On écoute le topic de la passerelle
+const TOPIC_TELEMETRIE = 'v1/gateway/telemetry/#';
 
-client.on("connect", () => {
-  console.log("📥 Consumer LIGHT connecté (Mode: Update Only)");
-  client.subscribe("v1/gateway/telemetry/#");
+client.on('connect', () => {
+  console.log('📥 Consumer connecté et en écoute du jumeau numérique...');
+  client.subscribe(TOPIC_TELEMETRIE); 
 });
 
-client.on("message", async (topic, message) => {
+client.on('message', async (topic, message) => {
   try {
     const payload = JSON.parse(message.toString());
-    
-    // On met à jour chaque capteur présent dans le message
-    const updates = payload.sensors.map((s: any) => 
-      prisma.sensor.update({
-        where: { sensor_id: s.id },
-        data: { last_value: parseFloat(s.value) }
-      })
-    );
+    const virtualTime = new Date(payload.timestamp);
 
-    await Promise.all(updates);
-    console.log(`[RT] ${payload.hostname} mis à jour.`);
+    if (!payload.sensors || !Array.isArray(payload.sensors)) {
+      return; // Si le format ne correspond pas, on évite le crash
+    }
+
+    // 🌟 On boucle sur les capteurs du tableau
+    for (const sensor of payload.sensors) {
+      const sensorId = Number(sensor.id);
+      const sensorValue = parseFloat(sensor.value);
+
+      if (isNaN(sensorId) || isNaN(sensorValue)) continue;
+
+      // 🌟 PROTECTION CHIRURGICALE POUR LES RESETS DE TOPOLOGIE
+      try {
+        console.log(`➔ [DB TRY] Tentative d'insertion pour le capteur ${sensorId} (Valeur: ${sensorValue})...`);
+
+        // Insertion de chaque métrique
+        await prisma.sensorData.create({
+          data: { sensor_id: sensorId, value: sensorValue, time: virtualTime }
+        });
+
+        console.log(`  ✔ [DB SUCCESS] Capteur ${sensorId} inséré avec succès !`);
+
+        await prisma.sensor.update({
+          where: { sensor_id: sensorId },
+          data: { last_value: sensorValue }
+        });
+        
+      } catch (dbError: any) {
+        // Si c'est l'erreur Prisma P2003 (Clé étrangère manquante), c'est un capteur fantôme
+        if (dbError.code === 'P2003') {
+          console.warn(`⚠️ [MÉMOIRE] Capteur obsolète ignoré (ID: ${sensorId}). La topologie a été reconstruite.`);
+          continue; // 🌟 TRÈS IMPORTANT : On passe au capteur suivant de la liste sans bloquer le reste !
+        }
+        
+        // Si c'est une autre erreur de base de données, on la logue pour ne pas couper le flux
+        console.error(`❌ Erreur d'écriture pour le capteur ${sensorId} :`, dbError.message);
+      }
+    }
+
   } catch (err) {
-    console.error("❌ Erreur traitement message:", err);
+    console.error('❌ Erreur générale d\'analyse du batch MQTT :', err);
   }
 });
 ```
@@ -5869,11 +5917,22 @@ export class ScenarioService {
     private activeScenario: Scenario | null = null;
     private currentTick: number = 0;
     private activeThermalDrifts: Map<number, number> = new Map();
-    
-    // 🚨 NOUVEAU : Suivi des réparations en cours { fanId -> { serverId, ticksRestants } }
+    private currentLoadMultiplier: number = 1.0;
     private pendingRepairs: Map<number, { serverId: number; remainingTicks: number }> = new Map();
 
     constructor(private prisma: PrismaClient, private io: any) {}
+
+    getCurrentScenario(): Scenario | null {
+        return this.activeScenario;
+    }
+
+    getLoadMultiplier(): number {
+        return this.currentLoadMultiplier;
+    }
+
+    getAllThermalDrifts(): Record<number, number> {
+        return Object.fromEntries(this.activeThermalDrifts);
+    }
 
     async loadScenario(scenarioId: string): Promise<void> {
         const filePath = path.join(__dirname, "../data_seed/scenarios.json");
@@ -5885,36 +5944,38 @@ export class ScenarioService {
         this.activeScenario = found;
         this.currentTick = 0;
         this.activeThermalDrifts.clear();
-        this.pendingRepairs.clear(); // 🚨 Nettoyage anti-side-effects
+        this.pendingRepairs.clear(); 
+        this.currentLoadMultiplier = 1.0;
         
         console.log(`📖 Scénario armé : ${this.activeScenario.name}`);
         this.io.emit("scenario_started", { name: found.name, description: found.description });
     }
 
     async processTick(): Promise<void> {
-        // Le métronome avance même si aucun scénario scénarisé n'est chargé
         this.currentTick++;
         console.log(`⏱️ [SCÉNARIO] Tick : ${this.currentTick}`);
 
-        // 🚨 NOUVEAU : GESTION DU DÉLAI DE MAINTENANCE (Compte à rebours)
+        // GESTION DU DÉLAI DE MAINTENANCE
         for (const [fanId, repair] of this.pendingRepairs.entries()) {
             repair.remainingTicks--;
             
             if (repair.remainingTicks > 0) {
-                console.log(`🔧 [MAINTENANCE] Ventilateur ${fanId} en cours de remplacement (Arrivée du technicien dans ${repair.remainingTicks} ticks...)`);
+                console.log(`🔧 [MAINTENANCE] Ventilateur ${fanId} en cours de remplacement...`);
                 this.io.emit("maintenance_progress", { fanId, remainingTicks: repair.remainingTicks });
             } else {
-                // 🛠️ FIN DU DÉLAI : Le technicien termine le travail !
-                await this.prisma.fan.update({
-                    where: { fan_id: fanId },
-                    data: { status: 'ON', control_mode: 'AUTO', speed_percent: 20 }
-                });
-
-                this.clearDriftForServer(repair.serverId);
-                this.pendingRepairs.delete(fanId); // Retrait de la file d'attente
-
-                console.log(`✅ [MAINTENANCE SUCCÈS] Le technicien a terminé le remplacement du Ventilateur ${fanId}. Système relancé.`);
-                this.io.emit("maintenance_complete", { fanId, serverId: repair.serverId });
+                try {
+                    await this.prisma.fan.update({
+                        where: { fan_id: fanId },
+                        data: { status: 'ON', control_mode: 'AUTO', speed_percent: 20 }
+                    });
+                    this.clearDriftForServer(repair.serverId);
+                    console.log(`✅ [MAINTENANCE SUCCÈS] Remplacement du Ventilateur ${fanId} terminé.`);
+                    this.io.emit("maintenance_complete", { fanId, serverId: repair.serverId });
+                } catch (e) {
+                    console.warn(`⚠️ [MAINTENANCE] Impossible de réparer le fan ${fanId} (ID obsolète pour cette topologie).`);
+                } finally {
+                    this.pendingRepairs.delete(fanId);
+                }
             }
         }
 
@@ -5923,47 +5984,56 @@ export class ScenarioService {
         const eventsToRun = this.activeScenario.events.filter(e => e.tick === this.currentTick);
 
         for (const event of eventsToRun) {
-            console.log(`⚠️ ÉVÈNEMENT SCÉNARIO ENCLENCHÉ : [${event.type}] (Cible: ${event.targetId ?? 'ALL'})`);
+            console.log(`⚠️ ÉVÈNEMENT SCÉNARIO ENCLENCHÉ : [${event.type}]`);
             this.io.emit("scenario_event_triggered", event);
 
-            switch (event.type) {
-                case 'CRASH_FAN':
-                    if (event.targetId) {
-                        await this.prisma.fan.update({
-                            where: { fan_id: event.targetId },
-                            data: { speed_percent: 0, control_mode: 'MANUAL', status: 'ON' }
-                        });
-                    }
-                    break;
+            // 🌟 US 1/3 SÉCURITÉ : Protection globale contre les IDs absents de la topologie courante
+            try {
+                switch (event.type) {
+                    case 'CRASH_FAN':
+                        if (event.targetId) {
+                            await this.prisma.fan.update({
+                                where: { fan_id: event.targetId },
+                                data: { speed_percent: 0, control_mode: 'MANUAL', status: 'ON' }
+                            });
+                            console.log(`💥 [SCÉNARIO] Le ventilateur ${event.targetId} a été saboté.`);
+                        }
+                        break;
 
-                case 'LOAD_SPIKE_ALL':
-                    if (event.value !== undefined) {
-                        await this.prisma.sensor.updateMany({
-                            where: { sensor_type: 'LOAD' },
-                            data: { last_value: event.value }
-                        });
-                    }
-                    break;
+                    case 'LOAD_SPIKE_ALL':
+                        if (event.value !== undefined) {
+                            this.currentLoadMultiplier = event.value;
+                            await this.prisma.sensor.updateMany({
+                                where: { sensor_type: 'LOAD' },
+                                data: { last_value: event.value * 50 }
+                            });
+                        }
+                        break;
 
-                case 'THERMAL_DRIFT_SERVER':
-                    if (event.targetId && event.value !== undefined) {
-                        this.activeThermalDrifts.set(event.targetId, event.value);
-                    }
-                    break;
+                    case 'THERMAL_DRIFT_SERVER':
+                        if (event.targetId && event.value !== undefined) {
+                            // On vérifie d'abord si le serveur existe dans notre topologie de test actuelle
+                            const serverExists = await this.prisma.server.findUnique({ where: { server_id: event.targetId } });
+                            if (serverExists) {
+                                this.activeThermalDrifts.set(event.targetId, event.value);
+                                console.log(`🔥 [SCÉNARIO] Dérive thermique (+${event.value}°C) appliquée au serveur ${event.targetId}`);
+                            } else {
+                                console.warn(`⏭️ [SCÉNARIO] Serveur cible ${event.targetId} absent de la topologie active. Événement ignoré.`);
+                            }
+                        }
+                        break;
+                }
+            } catch (prismaError) {
+                // L'erreur est interceptée ici : la simulation continue sa course !
+                console.warn(`⏭️ [SCÉNARIO] Échec de l'événement ${event.type} pour la cible ${event.targetId} (Composant absent de la topologie). La simulation continue.`);
             }
         }
     }
 
-    /**
-     * 🚨 NOUVEAU : Enregistre une demande de réparation planifiée
-     */
     queueRepair(fanId: number, serverId: number, delayTicks: number): void {
         this.pendingRepairs.set(fanId, { serverId, remainingTicks: delayTicks });
     }
 
-    /**
-     * 🚨 NOUVEAU : Vérifie si un ventilateur est déjà en cours de maintenance
-     */
     isFanUnderRepair(fanId: number): boolean {
         return this.pendingRepairs.has(fanId);
     }
@@ -5982,6 +6052,7 @@ export class ScenarioService {
         this.currentTick = 0;
         this.activeThermalDrifts.clear();
         this.pendingRepairs.clear();
+        this.currentLoadMultiplier = 1.0;
         console.log("♻️ Scénario nettoyé et dérives réinitialisées.");
     }
 }
@@ -5997,32 +6068,32 @@ import { BuildExerciseSchema, BuildExerciseDTO } from './seed.dto';
 export default async function seederController(fastify: FastifyInstance) {
   const seedServices = new SeedService(prisma);
 
-  fastify.post<{ Body: BuildExerciseDTO }>('/build-exercise', {
-    schema: {
-      description: 'Génère l\'infrastructure physique complète',
-      tags: ['Seeder'],
-      body: BuildExerciseSchema,
-      response: {
-        200: {
-          type: 'object',
-          properties: {
-            status: { type: 'string' },
-            message: { type: 'string' }
-          }
-        }
-      },
-    },
-    handler: async (request, reply) => {
-      // TypeScript est maintenant heureux car BuildExerciseDTO 
-      // est assignable à Cluster_Location[]
-      await seedServices.buildExercise(request.body);
+  // fastify.post<{ Body: BuildExerciseDTO }>('/build-exercise', {
+  //   schema: {
+  //     description: 'Génère l\'infrastructure physique complète',
+  //     tags: ['Seeder'],
+  //     body: BuildExerciseSchema,
+  //     response: {
+  //       200: {
+  //         type: 'object',
+  //         properties: {
+  //           status: { type: 'string' },
+  //           message: { type: 'string' }
+  //         }
+  //       }
+  //     },
+  //   },
+  //   handler: async (request, reply) => {
+  //     // TypeScript est maintenant heureux car BuildExerciseDTO 
+  //     // est assignable à Cluster_Location[]
+  //     await seedServices.buildExercise(request.body);
       
-      return { 
-        status: 'success', 
-        message: `Infrastructure construite pour ${request.body.length} localisations.` 
-      };
-    },
-  });
+  //     return { 
+  //       status: 'success', 
+  //       message: `Infrastructure construite pour ${request.body.length} localisations.` 
+  //     };
+  //   },
+  // });
 }
 ```
 
@@ -6783,7 +6854,7 @@ export type CreateServerDTO = Static<typeof CreateServerSchema>;
 ### FICHIER : src/server/types/server.type.ts ###
 ```ts
 // src/types/server.type.ts
-import { Prisma } from "../../prisma/generated/prisma/client";
+import { Prisma } from "@prisma/client";
 
 export type ServerWithHardware = Prisma.ServerGetPayload<{
   include: { 
@@ -6807,6 +6878,7 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { Server } from 'socket.io';
 import path from 'path';
+import fs from 'fs';
 import fastifyStatic from '@fastify/static';
 import 'dotenv/config';
 
@@ -6854,17 +6926,38 @@ const fastify = Fastify({
   }
 });
 
+// 🌟 REGISTRE EN MÉMOIRE VIVE (Partagé entre les routes REST)
+const coolingRegistry: Record<string, number> = {};
+
 const start = async () => {
   try {
+    // 🌟 REPARE : Détermination ultra-robuste du dossier public (Dev & Prod/Rebuild)
+    let publicPath = path.join(process.cwd(), 'public');
+    
+    // Système de repli si le projet est exécuté depuis un sous-dossier spécifique
+    if (!fs.existsSync(path.join(publicPath, 'dashboard.html'))) {
+      publicPath = path.join(__dirname, '../public');
+    }
+    if (!fs.existsSync(path.join(publicPath, 'dashboard.html'))) {
+      publicPath = path.join(__dirname, '../../public');
+    }
+
+    fastify.log.info(`📁 [STATIC] Dossier public localisé avec succès à : ${publicPath}`);
+
     // Configuration pour servir les fichiers statiques (Dashboard Front)
     await fastify.register(fastifyStatic, {
-      root: path.join(__dirname, '../public'),
+      root: publicPath,
       prefix: '/public/',
     });
 
+    // 🌟 REPARE : On passe explicitement le chemin absolu validé pour bypasser les conflits du dossier dist/
     fastify.get('/dashboard', (request, reply) => {
-      return reply.sendFile('dashboard.html');
+      return reply.sendFile('dashboard.html', publicPath);
     });
+
+    fastify.get('/create', (request, reply) => {
+      return reply.sendFile('build-exercise.html', publicPath);
+    }); 
 
     // 4. Configuration de Swagger (OpenAPI)
     await fastify.register(swagger, {
@@ -6908,7 +7001,7 @@ const start = async () => {
       credentials: true,
     });
 
-    // 8. Enregistrement des Schémas Globaux (Uniquement des objets de validation !)
+    // 8. Enregistrement des Schémas Globaux
     const schemas = [
       LoadProfileSchema,
       FanCatalogSchema,
@@ -6931,7 +7024,6 @@ const start = async () => {
     });
 
     // 9. Enregistrement des Modules (Contrôleurs)
-    // On y a bien rajouté scenarioController et agentController au chaud
     await fastify.register(seederController);
     await fastify.register(sensorController);
     await fastify.register(clusterController);
@@ -6940,6 +7032,24 @@ const start = async () => {
     await fastify.register(analyticsController);
     await fastify.register(agentController);
     await fastify.register(scenarioController); 
+
+    // 🌟 9b. BOUCLE DE RÉTROACTION (Contrôle IA & Communication Inter-Conteneur)
+    fastify.post('/api/servers/:hostname/control', async (request, reply) => {
+      const { hostname } = request.params as { hostname: string };
+      const { fan_speed } = request.body as { fan_speed: number };
+
+      if (fan_speed === undefined || fan_speed < 0 || fan_speed > 100) {
+        return reply.status(400).send({ error: "fan_speed doit être une valeur entre 0 et 100" });
+      }
+
+      coolingRegistry[hostname] = fan_speed;
+      fastify.log.info(`🎮 [CONTROL] Serveur: ${hostname} -> Vitesse ventilateur mise à jour à ${fan_speed}%`);
+      return { success: true, hostname, fan_speed };
+    });
+
+    fastify.get('/internal/control', async (request, reply) => {
+      return coolingRegistry;
+    });
 
     // 10. Lancement du serveur
     const port = Number(process.env.PORT) || 3333;
@@ -6957,6 +7067,8 @@ const start = async () => {
     🚀 SERVEUR DÉMARRÉ - MODE STABLE (MANUAL SOCKET.IO)
     📡 API REST     : http://localhost:${port}
     📚 SWAGGER      : http://localhost:${port}/docs
+    🖥️  DASHBOARD    : http://localhost:${port}/dashboard
+    🏗️  BUILD PANEL  : http://localhost:${port}/create
     🔌 WEBSOCKETS   : Port ${port} (Prêt pour alertes)
     `);
 
@@ -6969,197 +7081,643 @@ const start = async () => {
 start();
 ```
 
+### FICHIER : src/simulation/exercise-builder.service.ts ###
+```ts
+// src/simulation/exercise-builder.service.ts
+import { PrismaClient } from "@prisma/client";
+
+// Payload d'entrée structuré avec TOUS les champs nécessaires
+export interface SandboxBuildInput {
+    topology: Array<{
+        clusterName: string;   
+        city: string;          // Menu déroulant 1 : La localisation géographique
+        configProfile: string; // Menu déroulant 2 : Le profil matériel
+        clusterCount: number;  // Menu déroulant 3 : Nombre de sous-clusters à déployer dans cette ville
+        nodesOverride?: number; // Menu déroulant 4 : Optionnel - Forcer un nombre total de serveurs
+    }>;
+}
+
+// 🌍 Catalogue des hubs majeurs de datacenters mondiaux
+export const INDUSTRIAL_CITIES: Record<string, { envFactor: number; energyCost: number; defaultWeather: number }> = {
+    "Paris": { envFactor: 1.05, energyCost: 0.16, defaultWeather: 16.0 },     // Hub historique majeur (FLAP)
+    "Marseille": { envFactor: 1.20, energyCost: 0.18, defaultWeather: 24.0 }, // Hub télécom sous-marin hyper connecté, climat chaud
+    "Frankfurt": { envFactor: 1.10, energyCost: 0.21, defaultWeather: 15.0 }, // Le plus gros nœud d'échange cloud européen, électricité chère
+    "Oslo": { envFactor: 0.95, energyCost: 0.10, defaultWeather: 7.0 },      // Champion du Free-Cooling vert, énergie peu coûteuse
+    "Dublin": { envFactor: 1.02, energyCost: 0.15, defaultWeather: 12.0 }     // Hub hyperscale (Google, AWS), climat océanique tempéré
+};
+
+// 🖥️ Fusion de tes catalogues de profils de clusters (BIG, MEDIUM, SMALL)
+export const INTEGRATED_PROFILES: Record<string, {
+    masters: number;
+    workers: number;
+    baseConsumptionMaster: number;
+    baseConsumptionWorker: number;
+    hardwareMaster: string;
+    hardwareWorker: string;
+    fanCount: number;
+    fanModelName: string;
+    cpuCoolerModelName: string;
+}> = {
+    // Profils de calcul massif (BIG)
+    "BIG_CLUSTER_HIGH_POWER": { masters: 4, workers: 16, baseConsumptionMaster: 1700, baseConsumptionWorker: 1450, hardwareMaster: "2×Xeon + 1×A100, 512GB", hardwareWorker: "2×Xeon, 1×A100, 512GB", fanCount: 8, fanModelName: "FAN_HIGH_PERF", cpuCoolerModelName: "LIQUID_COOLING" },
+    "BIG_CLUSTER_HYBRID": { masters: 3, workers: 17, baseConsumptionMaster: 1100, baseConsumptionWorker: 900, hardwareMaster: "2×EPYC, 1×V100, 384GB", hardwareWorker: "2×EPYC, 1×V100, 384GB", fanCount: 6, fanModelName: "FAN_HIGH_PERF", cpuCoolerModelName: "AIR_HIGH_PERF" },
+    "BIG_CLUSTER_LOW_POWER": { masters: 2, workers: 18, baseConsumptionMaster: 800, baseConsumptionWorker: 475, hardwareMaster: "2×CPU dense, no GPU, 256GB", hardwareWorker: "2×CPU dense, no GPU, 256GB", fanCount: 4, fanModelName: "FAN_STANDARD", cpuCoolerModelName: "AIR_STANDARD" },
+    
+    // Profils intermédiaires (MEDIUM)
+    "MEDIUM_GPU": { masters: 2, workers: 8, baseConsumptionMaster: 850, baseConsumptionWorker: 700, hardwareMaster: "2×EPYC + 1×RTX, 256GB", hardwareWorker: "2×EPYC + 1×RTX, 256GB", fanCount: 4, fanModelName: "FAN_HIGH_PERF", cpuCoolerModelName: "AIR_HIGH_PERF" },
+    "MEDIUM_HEAVY_CPU": { masters: 2, workers: 8, baseConsumptionMaster: 425, baseConsumptionWorker: 325, hardwareMaster: "2×Xeon, 128GB", hardwareWorker: "2×Xeon, 128GB", fanCount: 3, fanModelName: "FAN_STANDARD", cpuCoolerModelName: "AIR_STANDARD" },
+    "MEDIUM_EDGE_TYPE": { masters: 1, workers: 9, baseConsumptionMaster: 225, baseConsumptionWorker: 165, hardwareMaster: "i9 + small accel, 64GB", hardwareWorker: "i9 + small accel, 64GB", fanCount: 2, fanModelName: "FAN_STANDARD", cpuCoolerModelName: "AIR_STANDARD" },
+    
+    // Profils locaux et embarqués (SMALL)
+    "SMALL_MINI_GPU": { masters: 1, workers: 4, baseConsumptionMaster: 425, baseConsumptionWorker: 325, hardwareMaster: "i9 + 1×RTX, 128GB", hardwareWorker: "i9 + 1×RTX, 128GB", fanCount: 2, fanModelName: "FAN_STANDARD", cpuCoolerModelName: "AIR_STANDARD" },
+    "SMALL_CPU": { masters: 1, workers: 4, baseConsumptionMaster: 165, baseConsumptionWorker: 110, hardwareMaster: "i7 / Xeon small, 64GB", hardwareWorker: "i7 / Xeon small, 64GB", fanCount: 2, fanModelName: "FAN_ECO", cpuCoolerModelName: "AIR_STANDARD" },
+    "SMALL_EDGE_CLOSET": { masters: 1, workers: 4, baseConsumptionMaster: 60, baseConsumptionWorker: 37, hardwareMaster: "NUC / low-power, 32GB", hardwareWorker: "NUC / low-power, 32GB", fanCount: 1, fanModelName: "FAN_ECO", cpuCoolerModelName: "AIR_STANDARD" }
+};
+
+export interface IdealPueReport {
+    city: string;
+    weatherTempCelsius: number;
+    theoreticalIdealPue: number;
+    description: string;
+}
+
+export class ExerciseBuilderService {
+    constructor(private prisma: PrismaClient) {}
+
+    async buildSandbox(input: SandboxBuildInput): Promise<IdealPueReport[]> {
+        console.log("🧹 [BUILDER] Purge destructive et réinitialisation de la Sandbox...");
+        
+        const tables = ["sensor_data", "sensor", "fan", "server", "cluster", "cluster_configuration", "fan_configuration", "fan_catalog", "cpucooler_catalog", "load_profile", "cluster_location"];
+        for (const table of tables) {
+            await this.prisma.$executeRawUnsafe(`TRUNCATE TABLE "${table}" RESTART IDENTITY CASCADE;`);
+        }
+
+        // 1. Amorçage du catalogue matériel de référence
+        const coolerLiquid = await this.prisma.cpuCoolerCatalog.create({ data: { model_name: "LIQUID_COOLING", type: "WATER", thermal_capacity: 500 } });
+        const coolerAirHigh = await this.prisma.cpuCoolerCatalog.create({ data: { model_name: "AIR_HIGH_PERF", type: "AIR", thermal_capacity: 250 } });
+        const coolerAirStd = await this.prisma.cpuCoolerCatalog.create({ data: { model_name: "AIR_STANDARD", type: "AIR", thermal_capacity: 150 } });
+
+        const fanCatalogHigh = await this.prisma.fanCatalog.create({ data: { model_name: "FAN_HIGH_PERF", consomation: 1.5 } });
+        const fanCatalogStd = await this.prisma.fanCatalog.create({ data: { model_name: "FAN_STANDARD", consomation: 0.8 } });
+        const fanCatalogEco = await this.prisma.fanCatalog.create({ data: { model_name: "FAN_ECO", consomation: 0.4 } });
+
+        const defaultFanConfig = await this.prisma.fanConfiguration.create({ data: { name: "Default_Auto_Regulation", consomation: 0.8 } });
+
+        // 🌟 CORRECTION CRUCIALE : Génération d'un agenda de charge 24h complet pour éviter les trous temporels
+        // et caler proprement le "hour" attendu par la BDD réalignée
+        const defaultLoadProfileIds: number[] = [];
+        for (let h = 0; h < 24; h++) {
+            // Profil ondulatoire de base (Simule l'activité humaine jour/nuit nominale)
+            const nominalLoad = 20 + 30 * Math.sin(((h - 8) * Math.PI) / 12);
+            const boundedLoad = Math.max(15, Math.min(75, Math.round(nominalLoad)));
+
+            const profileRow = await this.prisma.loadProfile.create({
+                data: { 
+                    name: `Config_Auto_H${h.toString().padStart(2, '0')}`, 
+                    hour: h, 
+                    expected_load_percent: boundedLoad, 
+                    target_temp_celsius: 60.0, 
+                    standard_fan_speed: "MEDIUM" 
+                }
+            });
+            defaultLoadProfileIds.push(profileRow.id);
+        }
+
+        const mappingCoolers: Record<string, number> = { "LIQUID_COOLING": coolerLiquid.cpu_cooler_catalog_id, "AIR_HIGH_PERF": coolerAirHigh.cpu_cooler_catalog_id, "AIR_STANDARD": coolerAirStd.cpu_cooler_catalog_id };
+        const mappingFans: Record<string, number> = { "FAN_HIGH_PERF": fanCatalogHigh.fan_catalog_id, "FAN_STANDARD": fanCatalogStd.fan_catalog_id, "FAN_ECO": fanCatalogEco.fan_catalog_id };
+
+        const pueReports: IdealPueReport[] = [];
+
+        // 2. Déploiement de la topologie sur-mesure choisie par l'utilisateur
+        for (const block of input.topology) {
+            const cityConfig = INDUSTRIAL_CITIES[block.city];
+            const blueprint = INTEGRATED_PROFILES[block.configProfile];
+
+            if (!cityConfig) throw new Error(`La ville [${block.city}] n'appartient pas au catalogue de supervision.`);
+            if (!blueprint) throw new Error(`Le profil matériel [${block.configProfile}] n'existe pas.`);
+
+            const baseInfrastructureFactor = 0.25;
+            const weatherPenalty = cityConfig.defaultWeather > 15.0 ? (cityConfig.defaultWeather - 15.0) * 0.008 : 0.0;
+            const serverHeatingPenalty = 0.0; 
+
+            const theoreticalIdealPue = Number((1.0 + baseInfrastructureFactor + weatherPenalty + serverHeatingPenalty).toFixed(3));
+
+            // A. Initialisation de la plaque géographique
+            const location = await this.prisma.clusterLocation.upsert({
+                where: { name: block.city },
+                update: { cluster_count: { increment: block.clusterCount } },
+                create: {
+                    name: block.city,
+                    location: `${block.city} Tech Hub`,
+                    env_factor: cityConfig.envFactor,
+                    energy_cost_kwh: cityConfig.energyCost,
+                    cluster_count: block.clusterCount
+                }
+            });
+
+            // B. Instanciation des sous-clusters demandés
+            for (let c = 1; c <= block.clusterCount; c++) {
+                const currentClusterName = `${block.clusterName}-Zone-${c.toString().padStart(2, '0')}`;
+
+                const clusterConfig = await this.prisma.clusterConfiguration.create({
+                    data: {
+                        name: `Config_${currentClusterName}`,
+                        pue: theoreticalIdealPue, 
+                        master: blueprint.masters,
+                        worker: blueprint.workers,
+                        hardware_per_master: blueprint.hardwareMaster,
+                        hardware_per_worker: blueprint.hardwareWorker,
+                        consomation_per_master: blueprint.baseConsumptionMaster,
+                        consomation_per_worker: blueprint.baseConsumptionWorker,
+                        load_profile_id: defaultLoadProfileIds[12], // Lie l'id par défaut (ex: midi)
+                        location_id: location.location_id,
+                        fan_count: blueprint.fanCount,
+                        cpu_cooler_catalog_id: mappingCoolers[blueprint.cpuCoolerModelName] || coolerAirStd.cpu_cooler_catalog_id,
+                        fan_catalog_id: mappingFans[blueprint.fanModelName] || fanCatalogStd.fan_catalog_id,
+                        fan_config_id: defaultFanConfig.id
+                    }
+                });
+
+                const cluster = await this.prisma.cluster.create({
+                    data: { name: currentClusterName, cluster_location_id: location.location_id }
+                });
+
+                let finalMastersCount = blueprint.masters;
+                let finalWorkersCount = blueprint.workers;
+
+                if (block.nodesOverride && block.nodesOverride > 0) {
+                    finalMastersCount = Math.max(1, Math.round(block.nodesOverride * 0.2));
+                    finalWorkersCount = Math.max(1, block.nodesOverride - finalMastersCount);
+                }
+
+                const totalNodes = finalMastersCount + finalWorkersCount;
+
+                for (let i = 1; i <= totalNodes; i++) {
+                    const isMaster = i <= finalMastersCount;
+                    const role = isMaster ? "master" : "worker";
+                    const idIndex = isMaster ? i : i - finalMastersCount;
+
+                    const server = await this.prisma.server.create({
+                        data: {
+                            cluster_id: cluster.cluster_id,
+                            config_id: clusterConfig.cluster_config_id,
+                            hostname: `${block.city.toLowerCase()}-${currentClusterName.toLowerCase()}-${role}-${idIndex.toString().padStart(2, '0')}`,
+                            status: "ON",
+                            is_master: isMaster,
+                            base_consumption_offset: isMaster ? blueprint.baseConsumptionMaster : blueprint.baseConsumptionWorker
+                        }
+                    });
+
+                    // Déploiement des ventilateurs physiques sur le serveur
+                    for (let f = 1; f <= blueprint.fanCount; f++) {
+                        await this.prisma.fan.create({
+                            data: {
+                                server_id: server.server_id,
+                                fan_catalog_id: mappingFans[blueprint.fanModelName] || fanCatalogStd.fan_catalog_id,
+                                fan_config_id: defaultFanConfig.id,
+                                control_mode: "AUTO",
+                                status: "ON",
+                                speed_percent: 20
+                            }
+                        });
+                    }
+
+                    // Attachement du kit complet des capteurs
+                    const kitSensors = [
+                        { type: "LOAD", unit: "%", value: 15.0 },
+                        { type: "CPU_TEMP", unit: "°C", value: 32.0 },
+                        { type: "TOTAL_POWER", unit: "W", value: 0.0 },
+                        { type: "FAN_SPEED_1", unit: "%", value: 20.0 },
+                        { type: "FAN_SPEED_2", unit: "%", value: 20.0 }
+                    ];
+
+                    for (const s of kitSensors) {
+                        await this.prisma.sensor.create({
+                            data: { server_id: server.server_id, sensor_type: s.type, unit: s.unit, last_value: s.value }
+                        });
+                    }
+                }
+            }
+
+            pueReports.push({
+                city: block.city,
+                weatherTempCelsius: cityConfig.defaultWeather,
+                theoreticalIdealPue,
+                description: `Cible de performance énergétique parfaite pour le cluster ${block.clusterName} localisé à ${block.city} sous son climat nominal.`
+            });
+        }
+
+        console.log("✅ [BUILDER] Sandbox configurée et déployée avec succès.");
+        return pueReports;
+    }
+
+    /**
+     * Génère 7 jours d'historique sain (Télémétrie nominale)
+     */
+    async seedHealthyWeekHistory(): Promise<number> {
+        console.log("⏳ [TIME-TRAVEL] Début de la génération des 7 jours d'historique sain...");
+        
+        const servers = await this.prisma.server.findMany({
+            include: { sensors: true, cluster: { include: { clusterLocation: true } } }
+        });
+
+        if (servers.length === 0) throw new Error("Aucun serveur en base...");
+
+        const bulkData: any[] = [];
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); 
+        
+        const totalHours = 7 * 24; 
+
+        for (let hourOffset = totalHours; hourOffset >= 0; hourOffset--) {
+            const simulatedTime = new Date(now.getTime() - hourOffset * 60 * 60 * 1000);
+            
+            const hourOfDay = simulatedTime.getHours();
+            const dayOfWeek = simulatedTime.getDay(); 
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+            let baseLoad = 20.0;
+            if (!isWeekend) {
+                if (hourOfDay >= 8 && hourOfDay <= 18) {
+                    baseLoad = 55.0 + Math.sin((hourOfDay - 8) * (Math.PI / 10)) * 20.0;
+                } else if (hourOfDay > 18 && hourOfDay <= 23) {
+                    baseLoad = 40.0 - (hourOfDay - 18) * 4.0;
+                }
+            } else {
+                baseLoad = 15.0 + Math.sin(hourOfDay * (Math.PI / 12)) * 5.0;
+            }
+
+            for (const server of servers) {
+                const cityName = server.cluster.clusterLocation.name;
+
+                let baseCityTemp = 15.0;
+                if (cityName === "Marseille") baseCityTemp = 23.0;
+                if (cityName === "Oslo") baseCityTemp = 7.0;
+                if (cityName === "Paris") baseCityTemp = 16.0;
+
+                const weatherOscillation = Math.sin((hourOfDay - 8) * (Math.PI / 12)) * 5.0;
+                const currentExternalWeather = baseCityTemp + weatherOscillation;
+
+                const serverNoise = Math.sin(server.server_id * 10) * 2.0;
+                const actualLoad = Math.max(5, Math.min(100, baseLoad + serverNoise + (Math.random() * 4 - 2)));
+
+                const cpuTemp = Math.max(30, Math.min(85, 35.0 + (actualLoad * 0.35) + (currentExternalWeather * 0.2) + (Math.random() * 2 - 1)));
+
+                const powerWatts = server.is_master
+                    ? server.base_consumption_offset + (actualLoad * 3.5)
+                    : server.base_consumption_offset + (actualLoad * 2.8);
+
+                const fanSpeed = Math.max(20, Math.min(100, 20.0 + (cpuTemp - 40.0) * 2.5));
+
+                for (const sensor of server.sensors) {
+                    let sensorValue = 0;
+                    const type = sensor.sensor_type.toUpperCase();
+
+                    if (type === "LOAD") sensorValue = actualLoad;
+                    else if (type === "CPU_TEMP") sensorValue = cpuTemp;
+                    else if (type === "TOTAL_POWER") sensorValue = powerWatts;
+                    else if (type === "FAN_SPEED_1" || type === "FAN_SPEED_2") sensorValue = fanSpeed;
+
+                    bulkData.push({
+                        value: Number(sensorValue.toFixed(2)),
+                        time: new Date(simulatedTime), // Cloner la date
+                        sensor_id: sensor.sensor_id
+                    });
+                }
+            }
+        }
+
+        console.log(`💾 [TIME-TRAVEL] Injection de ${bulkData.length} lignes de télémétrie en BDD...`);
+        const chunkSize = 5000;
+        for (let i = 0; i < bulkData.length; i += chunkSize) {
+            const chunk = bulkData.slice(i, i + chunkSize);
+            const values = chunk.map(d => `(${d.value}, '${d.time.toISOString()}', ${d.sensor_id})`).join(',');
+            await this.prisma.$executeRawUnsafe(
+                `INSERT INTO "sensor_data" (value, time, sensor_id) VALUES ${values}`
+            );
+        }
+
+        console.log("🏁 [TIME-TRAVEL] Historique des 7 jours généré avec succès !");
+        return bulkData.length;
+    }
+}
+```
+
 ### FICHIER : src/simulation/simulation.controller.ts ###
 ```ts
 // src/simulation/simulation.controller.ts
 import { FastifyInstance } from "fastify";
 import SimulationService from "./simulation.service";
+import { ExerciseBuilderService } from "./exercise-builder.service";
 import { prisma } from "../prisma/prisma";
 import { UpdateLoadProfileDTO, UpdateLoadProfileSchema } from "../cluster/load-profile.dto";
 
 export default async function simulationController(fastify: FastifyInstance) {
-    let timer: NodeJS.Timeout | null = null;
+    let timer: NodeJS.Timeout | undefined = undefined;
+    let currentCadenceMs = 5000; // Variable globale partagée (5s par défaut)
+    
+    // SUIVI TEMPOREL POUR L'AUTO-STOP
+    let virtualMinutesElapsed = 0;
+    const ONE_WEEK_MINUTES = 7 * 24 * 60; // 10 080 minutes (7 jours)
+
+    function stopExistingSimulation() {
+    if (timer) {
+        clearInterval(timer);
+        timer = undefined;
+    }
+}
 
     /**
-     * POST /sim/tick
-     * Exécute un pas de temps manuel
+     * GET /internal/cadence
+     * Endpoint privé de synchronisation complète pour le mqtt-producer
      */
-    fastify.post<{ Querystring: { persist?: boolean } }>('/sim/tick', {
-        schema: { 
-            tags: ['Simulation'], 
-            description: 'Exécute un pas de temps manuel',
-            querystring: {
-                type: 'object',
-                properties: {
-                    persist: { 
-                        type: 'boolean', 
-                        default: false,
-                        description: 'Si true, enregistre la télémétrie de ce tick dans la table sensor_data (historique)' 
-                    }
-                }
-            }
-        }
-    }, async (req) => {
-        const persist = req.query.persist === true;
-        const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
-        
-        await service.simulateTick({ persist });
-        
+    fastify.get('/internal/cadence', { schema: { hide: true } }, async () => {
         return { 
-            status: 'success', 
-            message: `Pas de temps manuel exécuté (Persistance DB : ${persist ? 'ACTIVÉE' : 'DÉSACTIVÉE'})` 
+            cadenceMs: currentCadenceMs,
+            isRunning: timer !== undefined,
+            loadMultiplier: fastify.scenarioService.getLoadMultiplier(),
+            thermalDrifts: fastify.scenarioService.getAllThermalDrifts(),
+            currentSimulatedDate: SimulationService.getClock().toISOString()
         };
     });
 
     /**
-     * POST /sim/start
-     * Démarre la simulation automatique
+     * POST /sim/scenarios/marseille
+     * Lance le scénario Marseille avec cadence, durée de ticks et date de départ ajustables
      */
-    fastify.post<{ Querystring: { persist?: boolean } }>('/sim/start', {
+    fastify.post<{ Querystring: { persist?: boolean; cadence?: number; tickDuration?: string; startDate?: string } }>('/sim/scenarios/marseille', {
         schema: { 
             tags: ['Simulation'], 
-            description: 'Démarre le métronome automatique',
+            description: 'Arme le scénario de Marseille à horaire fixe (Lundi par défaut) et démarre la boucle à vitesse configurable',
             querystring: {
                 type: 'object',
                 properties: {
-                    persist: { 
-                        type: 'boolean', 
-                        default: false,
-                        description: 'Si true, enregistre l\'historique en continu à chaque tick automatique' 
-                    }
+                    persist: { type: 'boolean', default: false },
+                    cadence: { type: 'number', enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 5 },
+                    tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h' },
+                    startDate: { type: 'string' }
                 }
             }
         }
-    }, async (req) => {
-        if (timer) return { status: "Simulation déjà active" };
+    }, async (req, reply) => {
+        const persist = req.query.persist !== false; 
+        const cadenceSeconds = req.query.cadence ?? 5;
+        const tickDuration = req.query.tickDuration ?? '1h';
 
-        const persist = req.query.persist === true;
+        if (timer) {
+            clearInterval(timer);
+            timer = undefined;
+        }
+
+        // Horaire fixe par défaut au Lundi à 00h00 pile
+        let startDate = new Date("2026-05-18T00:00:00.000Z"); 
+        if (req.query.startDate) {
+            const parsedDate = new Date(req.query.startDate);
+            if (!isNaN(parsedDate.getTime())) {
+                startDate = parsedDate;
+            }
+        }
+        SimulationService.setClock(startDate);
+
+        try {
+            await fastify.scenarioService.loadScenario('sc_marseille_gpu_melt');
+        } catch (err) {
+            return reply.status(404).send({ 
+                status: 'error', 
+                message: "Le scénario [sc_marseille_gpu_melt] est introuvable. Vérifie ton fichier scenarios.json." 
+            });
+        }
+
+        virtualMinutesElapsed = 0;
+        currentCadenceMs = cadenceSeconds * 1000;
+
+        let minutesPerTick = 60;
+        if (tickDuration !== '1h') {
+            minutesPerTick = parseInt(tickDuration, 10) || 60;
+        }
 
         timer = setInterval(async () => {
             try {
                 const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
-                await service.simulateTick({ persist });
+                await service.simulateTick({ persist, tickDuration });
+                
+                virtualMinutesElapsed += minutesPerTick;
+                
+                if (virtualMinutesElapsed >= ONE_WEEK_MINUTES) {
+                    clearInterval(timer);
+                    timer = undefined; 
+                    fastify.io.emit('simulation_auto_stopped', { 
+                        reason: '1_week_completed',
+                        message: "🏁 Fin du benchmark Marseille : 1 semaine complète s'est écoulée !"
+                    });
+                }
             } catch (err) {
                 fastify.log.error(err);
             }
-        }, 5000);
+        }, currentCadenceMs);
 
         return { 
-            status: "Simulation démarrée",
-            message: `Métronome calé sur 5s (Persistance DB continue : ${persist ? 'ACTIVÉE' : 'DÉSACTIVÉE'})`
+            status: "success", 
+            message: "🔥 Scénario Marseille enclenché !", 
+            setup: {
+                cadence: `${cadenceSeconds}s par tick`,
+                virtualTimePerTick: tickDuration,
+                startedAt: startDate.toISOString()
+            }
         };
     });
 
     /**
-     * POST /sim/stop
-     * Arrête la simulation automatique
+     * POST /sim/tick
      */
-    fastify.post('/sim/stop', {
-        schema: { tags: ['Simulation'], description: 'Arrête le métronome automatique' }
-    }, async () => {
+    fastify.post<{ Querystring: { persist?: boolean; tickDuration?: string } }>('/sim/tick', {
+        schema: { 
+            tags: ['Simulation'], 
+            querystring: {
+                type: 'object',
+                properties: {
+                    persist: { type: 'boolean', default: false },
+                    tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h' }
+                }
+            }
+        }
+    }, async (req) => {
+        const persist = req.query.persist === true;
+        const tickDuration = req.query.tickDuration ?? '1h';
+        
+        const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
+        await service.simulateTick({ persist, tickDuration });
+        return { status: 'success', message: `Pas de temps manuel exécuté (${tickDuration}).` };
+    });
+
+    /**
+     * POST /sim/start
+     */
+    fastify.post<{ Querystring: { persist?: boolean; cadence?: number; tickDuration?: string; startDate?: string } }>('/sim/start', {
+        schema: { 
+            tags: ['Simulation'], 
+            querystring: {
+                type: 'object',
+                properties: {
+                    persist: { type: 'boolean', default: false },
+                    cadence: { type: 'number', enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], default: 5 },
+                    tickDuration: { type: 'string', enum: ['5', '10', '15', '20', '25', '30', '1h'], default: '1h' },
+                    startDate: { type: 'string' }
+                }
+            }
+        }
+    }, async (req) => {
+        stopExistingSimulation();
+        virtualMinutesElapsed = 0;
+        const persist = req.query.persist === true;
+        const cadenceSeconds = req.query.cadence ?? 5;
+        const tickDuration = req.query.tickDuration ?? '1h';
+        
         if (timer) {
             clearInterval(timer);
-            timer = null;
-            return { status: "Simulation arrêtée" };
+            timer = undefined;
+        }
+        
+        try {
+            fastify.scenarioService.clearScenario();
+        } catch (e) {
+            fastify.log.error(e);
+        }
+        
+        // 🌟 CORRECTION : Forcer la date par défaut (Lundi à 00h00) si non fournie dans l'URL
+        let startDate = new Date("2026-05-18T00:00:00.000Z");
+        if (req.query.startDate) {
+            const parsedDate = new Date(req.query.startDate);
+            if (!isNaN(parsedDate.getTime())) {
+                startDate = parsedDate;
+            }
+        }
+        SimulationService.setClock(startDate);
+        
+        virtualMinutesElapsed = 0;
+        currentCadenceMs = cadenceSeconds * 1000;
+
+        let minutesPerTick = 60;
+        if (tickDuration !== '1h') {
+            minutesPerTick = parseInt(tickDuration, 10) || 60;
+        }
+
+        timer = setInterval(async () => {
+            try {
+                const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
+                await service.simulateTick({ persist, tickDuration });
+                virtualMinutesElapsed += minutesPerTick;
+                
+                if (virtualMinutesElapsed >= ONE_WEEK_MINUTES) {
+                    clearInterval(timer);
+                    timer = undefined; 
+                }
+            } catch (err) {
+                fastify.log.error(err);
+            }
+        }, currentCadenceMs);
+
+        return { status: "Simulation démarrée", cadence: `${cadenceSeconds}s` };
+    });
+
+    /**
+     * POST /sim/stop
+     */
+    fastify.post('/sim/stop', { schema: { tags: ['Simulation'] } }, async () => {
+        if (timer) {
+            clearInterval(timer);
+            timer = undefined; 
+            return { status: "Simulation arrêtée manuellement.", minutesSimulated: virtualMinutesElapsed };
         }
         return { status: "Aucun cycle actif" };
     });
 
     /**
+     * GET /sim/state
+     */
+    fastify.get('/sim/state', { schema: { tags: ['Simulation'] } }, async () => {
+        const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
+        return await service.getAgentState();
+    });
+
+    /**
+     * POST /build-exercise
+     */
+    fastify.post<{ Body: { topology: Array<{ clusterName: string; city: string; configProfile: string; clusterCount: number; nodesOverride?: number }> } }>('/build-exercise', {
+        schema: { tags: ['Simulation'] }
+    }, async (req) => {
+        if (timer) {
+            clearInterval(timer);
+            timer = undefined;
+        }
+        const builder = new ExerciseBuilderService(prisma);
+        const idealPueReports = await builder.buildSandbox(req.body);
+        return { status: 'success', idealTargets: idealPueReports };
+    });
+
+    /**
      * POST /sim/maintenance/repair
-     * 🔧 Simule l'intervention d'un technicien pour changer un ventilateur en panne
      */
     fastify.post<{ Body: { fanId: number } }>('/sim/maintenance/repair', {
-        schema: { 
-            tags: ['Simulation'], 
-            description: 'Envoie un technicien virtuel remplacer un ventilateur défectueux',
-            body: {
-                type: 'object',
-                required: ['fanId'],
-                properties: {
-                    fanId: { type: 'number', description: 'L\'ID numérique du ventilateur à réparer' }
-                }
-            }
-        }
+        schema: { tags: ['Simulation'] }
     }, async (req, reply) => {
         const { fanId } = req.body;
         const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
-
-        // Appel direct au service métier sans exposer Prisma ici !
         const result = await service.repairFan(fanId);
-
-        if (!result.success) {
-            return reply.status(404).send({ status: 'error', message: result.message });
-        }
-
+        if (!result.success) return reply.status(404).send({ status: 'error', message: result.message });
         return { status: 'success', message: result.message };
     });
 
     /**
      * POST /sim/reset
-     * Réinitialisation opérationnelle à chaud (refroidissement)
      */
-    fastify.post('/sim/reset', {
-        schema: { tags: ['Simulation'], description: 'Réinitialisation opérationnelle à chaud' }
-    }, async () => {
+    fastify.post('/sim/reset', { schema: { tags: ['Simulation'] } }, async () => {
         fastify.scenarioService.clearScenario();
-        
+        SimulationService.resetClock(); 
+        virtualMinutesElapsed = 0; 
         await prisma.server.updateMany({ data: { status: 'ON' } });
         await prisma.sensor.updateMany({ where: { sensor_type: 'LOAD' }, data: { last_value: 15 } });
         await prisma.sensor.updateMany({ where: { sensor_type: 'CPU_TEMP' }, data: { last_value: 32 } });
-        await prisma.loadProfile.updateMany({ data: { expected_load_percent: 20 } });
-
-        return { status: "DataCenter refroidi." };
+        return { status: "DataCenter refroidi et horloge synchronisée." };
     });
 
     /**
      * POST /sim/hard-reset
-     * Purge destructive complète de la DB pour rejouer l'exercice
      */
-    fastify.post('/sim/hard-reset', {
-        schema: { tags: ['Simulation'], description: 'Purge destructive et reset des IDs à 1' }
-    }, async () => {
-        if (timer) {
-            clearInterval(timer);
-            timer = null;
+    fastify.post('/sim/hard-reset', { schema: { tags: ['Simulation'] } }, async () => {
+        if (timer) { 
+            clearInterval(timer); 
+            timer = undefined;
         }
         fastify.scenarioService.clearScenario();
-
+        SimulationService.resetClock();
+        virtualMinutesElapsed = 0;
         const tables = ["sensor_data", "sensor", "fan", "server", "cluster", "cluster_configuration", "fan_configuration", "fan_catalog", "cpucooler_catalog", "load_profile", "cluster_location"];
         for (const table of tables) {
             await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${table}" RESTART IDENTITY CASCADE;`);
         }
-        return { status: "Base de données purgée. Séquences réinitialisées à 1." };
+        return { status: "Base de données purgée." };
     });
 
     /**
      * PATCH /simulation/load-profiles/:id
-     * Modification manuelle d'un profil de charge
      */
     fastify.patch<{ Params: { id: number }; Body: UpdateLoadProfileDTO }>('/simulation/load-profiles/:id', { 
         schema: { body: UpdateLoadProfileSchema } 
     }, async (req) => {
         const { id } = req.params;
         const { expected_load_percent } = req.body;
-        
-        await prisma.loadProfile.update({
-            where: { id: Number(id) },
-            data: { expected_load_percent }
-        });
+        await prisma.loadProfile.update({ where: { id: Number(id) }, data: { expected_load_percent } });
         return { message: `Profil horaire ${id} mis à jour.` };
     });
 
-    // À ajouter dans src/simulation/simulation.controller.ts (par exemple juste avant la route /sim/reset)
-
     /**
-     * GET /sim/state
-     * Récupère l'état instantané du datacenter pour l'agent de contrôle
+     * POST /sim/seed-history
      */
-    fastify.get('/sim/state', {
-        schema: { tags: ['Simulation'], description: 'Récupère l\'état instantané pour l\'agent SRE' }
-    }, async () => {
-        const service = new SimulationService(prisma, fastify.io, fastify.scenarioService);
-        return await service.getAgentState();
+    fastify.post('/sim/seed-history', { schema: { tags: ['Simulation'] } }, async () => {
+        const builder = new ExerciseBuilderService(prisma);
+        const totalRows = await builder.seedHealthyWeekHistory();
+        return { status: 'success', message: `Historique généré (${totalRows} lignes).` };
     });
 }
 ```
@@ -7172,16 +7730,13 @@ import _ from "lodash";
 import { Server as SocketServer } from "socket.io";
 import { ScenarioService } from "../scenario/scenario.service";
 
-type ServerWithHardware = Prisma.ServerGetPayload<{
-    include: { sensors: true, fans: true }
-}>;
-
-// 🚨 Interface pour contrôler la persistance à la demande
 interface SimulateOptions {
     persist?: boolean;
+    tickDuration?: string;
 }
 
 export default class SimulationService {
+    private static simulatedDate = new Date();
     private dataBuffer: Prisma.SensorDataCreateManyInput[] = [];
 
     constructor(
@@ -7190,213 +7745,147 @@ export default class SimulationService {
         private scenarioService: ScenarioService
     ) {}
 
+    public static resetClock(): void {
+        SimulationService.simulatedDate = new Date();
+    }
+
+    public static getClock(): Date {
+        return new Date(SimulationService.simulatedDate);
+    }
+
+    public static setClock(date: Date): void {
+        SimulationService.simulatedDate = new Date(date);
+        console.log(`📅 [HORLOGE] La simulation a été calée sur : ${SimulationService.simulatedDate.toISOString()}`);
+    }
+
     private async flushBuffer(): Promise<void> {
         if (this.dataBuffer.length === 0) return;
-
         const values = this.dataBuffer.map(d => {
-            const dateValue = d.time instanceof Date ? d.time : new Date();
+            const dateValue = d.time instanceof Date ? d.time : SimulationService.simulatedDate;
             return `(${d.value}, '${dateValue.toISOString()}', ${d.sensor_id})`;
         }).join(',');
 
-        try {
-            await this.prisma.$executeRawUnsafe(
-                `INSERT INTO "sensor_data" (value, time, sensor_id) VALUES ${values}`
-            );
-            this.dataBuffer = [];
-        } catch (e) {
-            console.error("❌ [DB] Échec du Bulk Insert Télémétrie :", e);
+        await this.prisma.$executeRawUnsafe(
+            `INSERT INTO "sensor_data" (value, time, sensor_id) VALUES ${values}`
+        );
+        this.dataBuffer = [];
+    }
+
+    async simulateTick(options: SimulateOptions = {}) {
+        const persist = options.persist === true;
+        const tickDuration = options.tickDuration ?? '1h';
+
+        let minutesToAdd = 60;
+        if (tickDuration !== '1h') {
+            minutesToAdd = parseInt(tickDuration, 10) || 60;
         }
-    }
+        SimulationService.simulatedDate.setMinutes(SimulationService.simulatedDate.getMinutes() + minutesToAdd);
 
-    private pushToBuffer(sensorId: number, value: number): void {
-        this.dataBuffer.push({
-            sensor_id: sensorId,
-            value: Number(value.toFixed(2)),
-            time: new Date()
-        });
-    }
-
-    // 🚨 Ajout du paramètre optionnel 'options'
-    async simulateTick(options?: SimulateOptions): Promise<void> {
         await this.scenarioService.processTick();
 
-        const configs = await this.prisma.clusterConfiguration.findMany({
+        const activeClusters = await this.prisma.cluster.findMany({
             include: {
-                load_profile: true,
-                location: true,
+                clusterLocation: true,
                 servers: { include: { sensors: true, fans: true } }
             }
         });
 
-        for (const config of configs) {
-            const targetLoad = config.load_profile?.expected_load_percent ?? 20;
-            console.log(`--- BLOC CONFIGURATION : ${config.name} (Cible Profil : ${targetLoad}%) ---`);
+        const currentHour = SimulationService.simulatedDate.getHours();
+        const loadMultiplier = this.scenarioService.getLoadMultiplier();
 
-            for (const server of config.servers) {
-                await this.applyThermalRegulation(server);
-                // Transmission du drapeau aux serveurs
-                await this.generateServerData(server, targetLoad, options);
-            }
-        }
-
-        // 🚨 Performance : On ne flush le buffer SQL que si la persistance est explicitement demandée
-        if (options?.persist === true) {
-            await this.flushBuffer();
-        } else {
-            this.dataBuffer = []; // Sécurité anti-fuite mémoire : on vide le tampon virtuel
-        }
-
-        const stats = await this.prisma.sensor.aggregate({
-            _avg: { last_value: true },
-            where: { sensor_type: 'CPU_TEMP' }
-        });
-        const totalPower = await this.prisma.sensor.aggregate({
-            _sum: { last_value: true },
-            where: { sensor_type: 'TOTAL_POWER' }
-        });
-
-        const avgTemp = stats._avg.last_value ?? 30;
-        const power = totalPower._sum.last_value ?? 0;
-
-        console.log(`📡 [EMIT] Global datacenter -> Temp: ${avgTemp.toFixed(1)}°C | Puissance: ${power.toFixed(0)}W`);
-        this.io.emit('tick_update', {
-            timestamp: new Date(),
-            avgTemp: avgTemp.toFixed(1),
-            totalPower: power.toFixed(0),
-        });
-    }
-
-    private async generateServerData(server: ServerWithHardware, targetLoad: number, options?: SimulateOptions): Promise<void> {
-        let isServerOff = server.status === 'OFF';
-
-        // 1. Pré-calcul de la charge (LOAD) du tick
-        const loadSensor = server.sensors.find(s => s.sensor_type.toUpperCase() === 'LOAD');
-        let currentSensorValue = loadSensor?.last_value || targetLoad;
-        let actualTickLoad = 0;
-
-        if (!isServerOff) {
-            if (currentSensorValue >= 99) {
-                actualTickLoad = 100;
-            } else {
-                actualTickLoad = Math.abs(currentSensorValue - targetLoad) > 5
-                    ? (currentSensorValue > targetLoad ? currentSensorValue - 5 : currentSensorValue + 5)
-                    : targetLoad + _.random(-2, 2);
-            }
-        }
-
-        // 2. Pré-calcul de la température (CPU_TEMP) du tick
-        const activeFans = server.fans.filter(f => f.status === 'ON');
-        const avgFanSpeed = activeFans.length > 0 ? _.meanBy(activeFans, 'speed_percent') : 0;
-        const driftPenalty = this.scenarioService.getDriftForServer(server.server_id);
-        
-        const tempSensor = server.sensors.find(s => s.sensor_type.toUpperCase() === 'CPU_TEMP');
-        let previousTemp = tempSensor?.last_value || 30;
-        let finalTemp = 30;
-
-        if (isServerOff) {
-            finalTemp = previousTemp - ((previousTemp - 30) * 0.15);
-        } else {
-            const heatGain = (actualTickLoad * 0.55) + driftPenalty;
-            const cooling = (avgFanSpeed * 0.25);
-            finalTemp = previousTemp + ((heatGain - cooling) * 0.15) + _.random(-0.1, 0.1);
-        }
-        finalTemp = _.clamp(finalTemp, 30, 110);
-
-        // 3. Vérification de la coupure de sécurité AVANT l'écriture des métriques
-        if (finalTemp >= 100 && !isServerOff) {
-            console.log(`🚨 [SÉCURITÉ] ARRET D'URGENCE THERMIQUE : ${server.hostname}`);
-            this.io.emit('emergency_shutdown', { hostname: server.hostname, temp: Math.round(finalTemp) });
+        for (const cluster of activeClusters) {
+            const profileRow = await this.prisma.loadProfile.findFirst({
+                where: {
+                    hour: currentHour,
+                    cluster_configurations: {
+                        some: {
+                            cluster_config_id: cluster.cluster_id
+                        }
+                    }
+                }
+            });
             
-            await this.prisma.server.update({
-                where: { server_id: server.server_id },
-                data: { status: 'OFF' }
-            });
-            isServerOff = true;
-            actualTickLoad = 0;
-            finalTemp = previousTemp - ((previousTemp - 30) * 0.15); // Recalcul immédiat en mode passif
-        }
+            let profileLoadFactor = (profileRow?.expected_load_percent ?? 20) / 100;
+            if (profileLoadFactor === 0.20) {
+                profileLoadFactor = 0.45 + 0.30 * Math.sin(((currentHour - 8) * Math.PI) / 12);
+            }
 
-        // 4. Calcul de la puissance (TOTAL_POWER) finale cohérente
-        const finalPower = isServerOff 
-            ? 15 
-            : 100 + (actualTickLoad * 2.5) + (activeFans.length * (avgFanSpeed * 0.4));
+            for (const server of cluster.servers) {
+                const isMaster = server.hostname.toLowerCase().includes("master");
+                
+                let finalLoad = isMaster ? 0.12 : profileLoadFactor * loadMultiplier;
+                if (finalLoad > 1.0) finalLoad = 1.0;
+                if (finalLoad < 0.0) finalLoad = 0.0;
 
-        // 5. Application synchrone en base et mise en tampon historique conditionnelle
-        for (const sensor of server.sensors) {
-            const sensorType = sensor.sensor_type.toUpperCase();
-            let newValue = 0;
+                let totalSpeed = 0;
+                let activeFansCount = 0;
+                for (const f of server.fans) {
+                    if (f.status === "ON") {
+                        totalSpeed += f.speed_percent;
+                        activeFansCount++;
+                    }
+                }
+                const fanSpeed = activeFansCount > 0 ? totalSpeed / server.fans.length : 0;
+                const drift = this.scenarioService.getDriftForServer(server.server_id);
 
-            if (sensorType === 'LOAD') newValue = actualTickLoad;
-            else if (sensorType === 'CPU_TEMP') newValue = finalTemp;
-            else if (sensorType === 'TOTAL_POWER') newValue = finalPower;
-            // 🚨 NOUVEAU : Prise en charge des capteurs d'historisation des ventilos
-            else if (sensorType === 'FAN_SPEED_1') newValue = server.fans[0]?.speed_percent ?? 0;
-            else if (sensorType === 'FAN_SPEED_2') newValue = server.fans[1]?.speed_percent ?? 0;
+                // 🌟 MODÈLE PHYSIQUE RÉALISTE DU CPU (Loi d'échange de calories)
+                const tAmb = 22.0; 
+                let computedTemp = tAmb + (finalLoad * 55) + drift;
 
-            await this.prisma.sensor.update({
-                where: { sensor_id: sensor.sensor_id },
-                data: { last_value: newValue }
-            });
+                if (fanSpeed > 0) {
+                    const coolingPower = (fanSpeed / 100) * 25 * (finalLoad + 0.3);
+                    computedTemp -= coolingPower;
+                }
 
-            // 🚨 PERFORMANCE CLASSE : On ne pousse dans le buffer de masse QUE si persist est à true
-            if (options?.persist === true) {
-                this.pushToBuffer(sensor.sensor_id, newValue);
+                if (computedTemp < tAmb) computedTemp = tAmb;
+                if (computedTemp > 105.0) computedTemp = 105.0;
+
+                const baseConsumption = 120; 
+                const maxConsumption = 450;  
+                const currentPower = baseConsumption + (finalLoad * (maxConsumption - baseConsumption)) + (fanSpeed * 0.6);
+
+                for (const sensor of server.sensors) {
+                    let nextValue = 0;
+                    if (sensor.sensor_type === "CPU_TEMP") nextValue = computedTemp;
+                    else if (sensor.sensor_type === "LOAD") nextValue = finalLoad * 100;
+                    else if (sensor.sensor_type === "TOTAL_POWER") nextValue = currentPower;
+                    else if (sensor.sensor_type.startsWith("FAN_SPEED")) nextValue = fanSpeed;
+
+                    await this.prisma.sensor.update({
+                        where: { sensor_id: sensor.sensor_id },
+                        data: { last_value: Number(nextValue.toFixed(2)) }
+                    });
+
+                    if (persist) {
+                        this.dataBuffer.push({
+                            value: Number(nextValue.toFixed(2)),
+                            // 🌟 CLONAGE STRICTE : Fige l'état exact pour ne pas avoir de doublons temporels
+                            time: new Date(SimulationService.simulatedDate),
+                            sensor_id: sensor.sensor_id
+                        });
+                    }
+                }
             }
         }
 
-        console.log(`[DEBUG] ${server.hostname.padEnd(12)} | Alim: ${isServerOff ? 'OFF':'ON '} | Charge: ${actualTickLoad.toFixed(0)}% | Temp: ${finalTemp.toFixed(1)}°C`);
-    }
-
-    private async applyThermalRegulation(server: ServerWithHardware): Promise<void> {
-        const targetTemp = 60.0;
-        const tempSensor = server.sensors.find(s => s.sensor_type.toUpperCase() === 'CPU_TEMP');
-        if (!tempSensor || server.status === 'OFF') return;
-
-        const currentTemp = tempSensor.last_value || 30;
-        const autoFans = server.fans.filter(f => f.control_mode === 'AUTO' && f.status === 'ON');
-        if (autoFans.length === 0) return;
-
-        let speedAdjustment = (currentTemp - targetTemp) * 4.0;
-
-        for (const fan of autoFans) {
-            let newSpeed = _.clamp(fan.speed_percent + speedAdjustment, 20, 100);
-            await this.prisma.fan.update({
-                where: { fan_id: fan.fan_id },
-                data: { speed_percent: Math.round(newSpeed) }
-            });
-            fan.speed_percent = Math.round(newSpeed);
+        if (persist && this.dataBuffer.length > 0) {
+            await this.flushBuffer();
         }
+
+        this.io.emit('tick_completed', {
+            timestamp: SimulationService.simulatedDate.toISOString(),
+            loadMultiplier,
+            hour: currentHour
+        });
     }
 
-    /**
-     * Enclenche un ticket de maintenance pour un ventilateur.
-     * Le processus prendra du temps (délai en ticks) avant d'être effectif.
-     */
-    async repairFan(fanId: number): Promise<{ success: boolean; message: string }> {
-        // 1. Recherche du ventilateur
+    async repairFan(fanId: number) {
         const fan = await this.prisma.fan.findUnique({ where: { fan_id: fanId } });
-        if (!fan) {
-            return { 
-                success: false, 
-                message: `Le ventilateur avec l'ID ${fanId} n'existe pas.` 
-            };
-        }
+        if (!fan) return { success: false, message: "Ventilateur introuvable" };
 
-        // 2. Sécurité : Vérifier si un technicien n'est pas déjà en train de s'en occuper
-        if (this.scenarioService.isFanUnderRepair(fanId)) {
-            return { 
-                success: false, 
-                message: `L'intervention est déjà en cours pour le ventilateur ${fanId}. Veuillez patienter.` 
-            };
-        }
-
-        // 3. Planification de l'intervention (Délai réaliste de 5 Ticks = 25 secondes)
-        const MAINTENANCE_DELAY_TICKS = 5;
+        const MAINTENANCE_DELAY_TICKS = 4; 
         this.scenarioService.queueRepair(fanId, fan.server_id, MAINTENANCE_DELAY_TICKS);
 
-        console.log(`🔧 [MAINTENANCE] Ticket ouvert. Technicien dépêché pour le ventilateur ${fanId} (Arrivée dans ${MAINTENANCE_DELAY_TICKS} ticks).`);
-        
-        // Notification Websocket du début d'intervention
         this.io.emit('maintenance_started', { 
             fanId, 
             serverId: fan.server_id, 
@@ -7405,23 +7894,18 @@ export default class SimulationService {
 
         return { 
             success: true, 
-            message: `Ordre de maintenance reçu. Le technicien est en route vers le rack du ventilateur ${fanId}. Temps d'accès estimé : ${MAINTENANCE_DELAY_TICKS} ticks.` 
+            message: `Ordre de maintenance reçu. Temps d'accès estimé : ${MAINTENANCE_DELAY_TICKS} ticks.` 
         };
     }
     
-    /**
-     * Récupère l'état de supervision actuel pour l'agent SRE (Python)
-     */
     async getAgentState() {
         const servers = await this.prisma.server.findMany({
             include: { sensors: true }
         });
-
         return {
             observations: servers.map(srv => {
                 const tempSensor = srv.sensors.find(s => s.sensor_type.toUpperCase() === 'CPU_TEMP');
                 const loadSensor = srv.sensors.find(s => s.sensor_type.toUpperCase() === 'LOAD');
-                
                 return {
                     serverId: srv.server_id,
                     hostname: srv.hostname,
@@ -7451,82 +7935,6 @@ export interface ClusterConfig {
   cpu_cooler_model_name: string
 }
 
-```
-
-### FICHIER : src/workers/mqtt-consumer.ts ###
-```ts
-// nodejs-server/src/workers/consumer.ts
-import mqtt from 'mqtt';
-import { prisma } from '../prisma/prisma';
-
-const client = mqtt.connect(process.env.MQTT_BROKER_URL || 'mqtt://mosquitto:1883');
-
-client.on('connect', () => {
-  console.log('📥 Consumer connecté et en écoute...');
-  client.subscribe('sensors/#'); 
-});
-
-client.on('message', async (topic, message) => {
-  try {
-    const data = JSON.parse(message.toString());
-
-    await prisma.sensorData.create({
-      data: {
-        sensor_id: data.sensor_id,
-        value: data.value,
-        time: new Date(data.timestamp)
-      }
-    });
-
-    await prisma.sensor.update({
-      where: { sensor_id: data.sensor_id },
-      data: { last_value: data.value }
-    });
-
-  } catch (err) {
-    console.error('❌ Erreur d\'ingestion :', err);
-  }
-});
-```
-
-### FICHIER : src/workers/mqtt-producer.ts ###
-```ts
-// nodejs-server/src/workers/producer.ts
-import mqtt from 'mqtt';
-import { prisma } from '../prisma/prisma';
-import _ from 'lodash';
-
-const client = mqtt.connect(process.env.MQTT_BROKER_URL || 'mqtt://mosquitto:1883');
-// nodejs-server/src/workers/producer.ts
-async function simulate() {
-  console.log("📡 Démarrage du moteur de simulation...");
-
-  setInterval(async () => {
-    // ON RECHERCHE LES CAPTEURS À CHAQUE CYCLE
-    const sensors = await prisma.sensor.findMany({
-      include: { server: { include: { cluster: { include: { clusterLocation: true } } } } }
-    });
-
-    if (sensors.length === 0) {
-      console.log("⏳ En attente de capteurs en base (Lance /build-exercise)...");
-      return;
-    }
-
-    for (const sensor of sensors) {
-      const baseValue = sensor.last_value || 25;
-      const newValue = baseValue + _.random(-1, 1, true);
-      const topic = `sensors/${sensor.server.cluster.clusterLocation.name}/${sensor.server.hostname}/${sensor.sensor_type}`;
-      
-      const payload = JSON.stringify({
-        sensor_id: sensor.sensor_id,
-        value: parseFloat(newValue.toFixed(2)),
-        timestamp: new Date().toISOString()
-      });
-
-      client.publish(topic, payload); // C'EST ICI QUE MQTT EST APPELÉ
-    }
-  }, 5000); 
-}
 ```
 
 ### FICHIER : tsconfig.json ###
