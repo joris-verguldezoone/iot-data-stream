@@ -4,7 +4,7 @@ import { AgentService } from "./agent.service";
 import { prisma } from "../prisma/prisma";
 
 export default async function agentController(fastify: FastifyInstance) {
-    // ✅ Injection du Singleton io décoré sur l'instance de Fastify
+
     const agentService = new AgentService(prisma, fastify.io);
 
     // GET /agent/state -> Observation pour l'IA
@@ -16,7 +16,7 @@ export default async function agentController(fastify: FastifyInstance) {
     // Définition du schéma pour la route action
 
     const actionSchema = {
-        tags: ['Agent IA'],
+        tags: ['Agent IA #Deprecated '],
         description: 'Permet à l\'IA d\'envoyer des commandes de régulation (Brider la charge ou forcer les ventilateurs)',
         body: {
             type: 'object',

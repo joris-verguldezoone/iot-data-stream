@@ -7,7 +7,7 @@ import path from 'path';
 import fs from 'fs';
 import fastifyStatic from '@fastify/static';
 import 'dotenv/config';
-
+import { TypeBoxTypeProvider } from '@fastify/type-provider-typebox';
 import { prisma } from './prisma/prisma';
 
 // 1. Import des Schémas (DTOs)
@@ -50,7 +50,8 @@ const fastify = Fastify({
       keywords: ['example'] 
     }
   }
-});
+}).withTypeProvider<TypeBoxTypeProvider>();
+
 
 // 🌟 REGISTRE EN MÉMOIRE VIVE (Partagé entre les routes REST)
 const coolingRegistry: Record<string, number> = {};

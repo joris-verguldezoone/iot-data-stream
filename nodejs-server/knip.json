@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["src/server.ts"],
+  "project": ["src/**/*.ts"],
+  "ignore": [
+    "dist/**",
+    "src/prisma/generated/**",
+    "src/mqtt/producer.ts",                           
+    "src/mqtt/statefull-consumer.ts",                   
+    "src/mqtt/stateless-consumer.ts"
+  ],
+  "ignoreDependencies": [
+    "@prisma/client-runtime-utils"
+  ]
+}

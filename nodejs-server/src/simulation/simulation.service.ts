@@ -5,7 +5,6 @@ import { Server as SocketServer } from "socket.io";
 import { ScenarioService } from "../scenario/scenario.service";
 
 interface SimulateOptions {
-    persist?: boolean;
     tickDuration?: string;
 }
 
@@ -46,7 +45,6 @@ export default class SimulationService {
     }
 
     async simulateTick(options: SimulateOptions = {}) {
-        const persist = options.persist === true;
         const tickDuration = options.tickDuration ?? '1h';
 
         let minutesToAdd = 60;
@@ -129,21 +127,8 @@ export default class SimulationService {
                         where: { sensor_id: sensor.sensor_id },
                         data: { last_value: Number(nextValue.toFixed(2)) }
                     });
-
-                    if (persist) {
-                        this.dataBuffer.push({
-                            value: Number(nextValue.toFixed(2)),
-                            // 🌟 CLONAGE STRICTE : Fige l'état exact pour ne pas avoir de doublons temporels
-                            time: new Date(SimulationService.simulatedDate),
-                            sensor_id: sensor.sensor_id
-                        });
-                    }
                 }
             }
-        }
-
-        if (persist && this.dataBuffer.length > 0) {
-            await this.flushBuffer();
         }
 
         this.io.emit('tick_completed', {

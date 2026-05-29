@@ -1,68 +1,136 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Générateur d'infrastructure</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f6f9; color: #333; padding: 20px; }
+        #sandbox-form { background: white; max-width: 90vw; margin: 0 auto; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h3 { margin-top: 0; color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; }
+        .cluster-line { background: #fbfbfc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 15px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        input, select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; }
+        input[type="text"] { flex: 1; min-width: 150px; }
+        .btn { padding: 10px 15px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .btn-add { background: #3b82f6; color: white; margin-right: 5px; }
+        .btn-deploy { background: #10b981; color: white; }
+        .btn-remove { background: #ef4444; color: white; padding: 8px 12px; }
+        .label-group { display: flex; align-items: center; gap: 5px; font-size: 14px; color: #64748b; }
+    </style>
 </head>
 <body>
-    <div id="sandbox-form">
-  <h3>🏗️ Generateur de Topologie</h3>
+
+<div id="sandbox-form">
+  <h3>🏗️ Générateur de Topologie Datacenter</h3>
   
   <div id="clusters-list">
-    </div>
+      </div>
 
-  <button type="button" onclick="addClusterLine()">➕ Ajouter un cluster</button>
-  <button type="button" onclick="deployTopology()" style="background: green; color: white;">🚀 Lancer le Build</button>
+  <div style="margin-top: 20px; display: flex; justify-content: space-between;">
+      <button type="button" class="btn btn-add" onclick="addClusterLine()">➕ Ajouter un cluster</button>
+      <button type="button" class="btn btn-deploy" onclick="deployTopology()">Lancer le Build</button>
+  </div>
 </div>
 
 <script>
-// Fonction pour ajouter dynamiquement une ligne de selects avec le bouton [+]
+// Fonction pour ajouter dynamiquement une ligne de configuration matérielle
 function addClusterLine() {
   const container = document.getElementById('clusters-list');
-  const lineHtml = `
-    <div class="cluster-line" style="margin-bottom: 10px; border: 1px solid #ccc; padding: 10px;">
-      <input type="text" placeholder="Nom du cluster (ex: Rack-01)" class="c-name">
+  
+  const line = document.createElement('div');
+  line.className = 'cluster-line';
+  line.innerHTML = `
+      <input type="text" placeholder="Nom du cluster (ex: Marseille-Core-IA)" class="c-name" required>
       
       <select class="c-city">
-        <option value="Paris">Paris</option>
-        <option value="Marseille">Marseille</option>
-        <option value="Oslo">Oslo</option>
+        <option value="Paris">Paris (0.14$/kWh)</option>
+        <option value="Marseille" selected>Marseille (0.14$/kWh)</option>
+        <option value="Frankfurt">Frankfurt (0.26$/kWh)</option>
+        <option value="Oslo">Oslo (0.08$/kWh)</option>
+        <option value="Dublin">Dublin (0.23$/kWh)</option>
       </select>
       
       <select class="c-profile">
-        <option value="BIG_CLUSTER_HIGH_POWER">BIG HIGH POWER</option>
-        <option value="MEDIUM_GPU">MEDIUM GPU</option>
-        <option value="SMALL_EDGE_CLOSET">SMALL EDGE CLOSET</option>
+        <optgroup label="--PROFILS MASSIFS (BIG)">
+          <option value="BIG_CLUSTER_HIGH_POWER">BIG HIGH POWER (8 Fans - Liquide)</option>
+          <option value="BIG_CLUSTER_HYBRID">BIG HYBRID (6 Fans - Air High)</option>
+          <option value="BIG_CLUSTER_LOW_POWER">BIG LOW POWER (4 Fans - Air Std)</option>
+        </optgroup>
+        <optgroup label="--PROFILS INTERMÉDIAIRES (MEDIUM)">
+          <option value="MEDIUM_GPU" selected>MEDIUM GPU (4 Fans - Air High)</option>
+          <option value="MEDIUM_HEAVY_CPU">MEDIUM HEAVY CPU (3 Fans - Air Std)</option>
+          <option value="MEDIUM_EDGE_TYPE">MEDIUM EDGE TYPE (2 Fans - Air Std)</option>
+        </optgroup>
+        <optgroup label="--PROFILS EMBARQUÉS (SMALL)">
+          <option value="SMALL_MINI_GPU">SMALL MINI GPU (2 Fans - Air Std)</option>
+          <option value="SMALL_CPU">SMALL CPU (2 Fans - Air Eco)</option>
+          <option value="SMALL_EDGE_CLOSET">SMALL EDGE CLOSET (1 Fan - Air Eco)</option>
+        </optgroup>
       </select>
       
-      <input type="number" value="1" min="1" class="c-count" style="width: 50px;"> clusters
-    </div>
+      <span class="label-group">
+        <input type="number" value="1" min="1" class="c-count" style="width: 50px;"> Cluster(s)
+      </span>
+
+      <span class="label-group" title="Optionnel : Laissez à 0 pour utiliser la taille par défaut du profil">
+        Forcer le nombre de : <input type="number" value="0" min="0" class="c-override" style="width: 60px;">Serveurs par cluster
+      </span>
+
+      <button type="button" class="btn btn-remove" onclick="this.parentElement.remove()">Supprimer</button>
   `;
-  container.insertAdjacentHTML('beforeend', lineHtml);
+  
+  container.appendChild(line);
 }
 
-// Fonction qui scanne les lignes, fabrique le JSON et l'envoie à ton API Fastify
+// Fonction qui scanne l'arbre DOM, valide et pousse le JSON vers ton API Fastify
 async function deployTopology() {
   const lines = document.querySelectorAll('.cluster-line');
-  const topology = Array.from(lines).map(line => ({
-    clusterName: line.querySelector('.c-name').value,
-    city: line.querySelector('.c-city').value,
-    configProfile: line.querySelector('.c-profile').value,
-    clusterCount: parseInt(line.querySelector('.c-count').value),
-    nodesOverride: 0
-  }));
-
-  const response = await fetch('http://localhost:3333/build-exercise', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ topology })
-  });
   
-  alert(response.ok ? "Sandbox initialisée !" : "Erreur de build");
+  if (lines.length === 0) {
+      alert("Veuillez ajouter au moins un cluster avant de lancer le build.");
+      return;
+  }
+
+  // Reconstruction rigoureuse du payload pour ton SandboxBuildInput DTO
+  const topology = Array.from(lines).map(line => {
+      const nodesOverrideValue = parseInt(line.querySelector('.c-override').value);
+      
+      const item = {
+          clusterName: line.querySelector('.c-name').value.trim() || "Sandbox-Cluster",
+          city: line.querySelector('.c-city').value,
+          configProfile: line.querySelector('.c-profile').value,
+          clusterCount: parseInt(line.querySelector('.c-count').value) || 1
+      };
+
+      // N'ajoute le champ nodesOverride que s'il est supérieur à 0 pour laisser Prisma appliquer le blueprint par défaut
+      if (nodesOverrideValue > 0) {
+          item.nodesOverride = nodesOverrideValue;
+      }
+
+      return item;
+  });
+
+  try {
+      const response = await fetch('http://localhost:3333/build-exercise', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topology })
+      });
+      
+      if (response.ok) {
+          const data = await response.json();
+          console.log("Targets idéales reçues :", data.idealTargets);
+          alert("Base de données purgée ! La nouvelle topologie a été déployée avec succès.");
+      } else {
+          const errData = await response.json();
+          alert(`Erreur du serveur de simulation : ${errData.message || "Impossible de générer le build"}`);
+      }
+  } catch (error) {
+      alert("Impossible de joindre l'API Fastify backend (Vérifie que ton conteneur tourne sur le port 3333).");
+  }
 }
 
-// Générer une première ligne par défaut au chargement
+// Générer automatiquement la première ligne par défaut au démarrage
 addClusterLine();
 </script>
 </body>

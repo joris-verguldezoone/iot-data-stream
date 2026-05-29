@@ -60,7 +60,7 @@ export class ExerciseBuilderService {
     constructor(private prisma: PrismaClient) {}
 
     async buildSandbox(input: SandboxBuildInput): Promise<IdealPueReport[]> {
-        console.log("🧹 [BUILDER] Purge destructive et réinitialisation de la Sandbox...");
+        console.log("[BUILDER] Purge destructive et réinitialisation de la Sandbox...");
         
         const tables = ["sensor_data", "sensor", "fan", "server", "cluster", "cluster_configuration", "fan_configuration", "fan_catalog", "cpucooler_catalog", "load_profile", "cluster_location"];
         for (const table of tables) {
@@ -78,11 +78,8 @@ export class ExerciseBuilderService {
 
         const defaultFanConfig = await this.prisma.fanConfiguration.create({ data: { name: "Default_Auto_Regulation", consomation: 0.8 } });
 
-        // 🌟 CORRECTION CRUCIALE : Génération d'un agenda de charge 24h complet pour éviter les trous temporels
-        // et caler proprement le "hour" attendu par la BDD réalignée
         const defaultLoadProfileIds: number[] = [];
         for (let h = 0; h < 24; h++) {
-            // Profil ondulatoire de base (Simule l'activité humaine jour/nuit nominale)
             const nominalLoad = 20 + 30 * Math.sin(((h - 8) * Math.PI) / 12);
             const boundedLoad = Math.max(15, Math.min(75, Math.round(nominalLoad)));
 
@@ -103,34 +100,47 @@ export class ExerciseBuilderService {
 
         const pueReports: IdealPueReport[] = [];
 
-        // 2. Déploiement de la topologie sur-mesure choisie par l'utilisateur
+        // 🌟 CORRECTION : Étape de calcul préalable des emplacements géographiques uniques
+        // Évite les cumuls erronés liés aux appels upsert en cascade dans la boucle
+        const cityTotals: Record<string, number> = {};
+        for (const block of input.topology) {
+            cityTotals[block.city] = (cityTotals[block.city] || 0) + block.clusterCount;
+        }
+
+        // Création initiale fixe de toutes les localisations requises
+        const locationMapping: Record<string, number> = {};
+        for (const [cityName, totalClusters] of Object.entries(cityTotals)) {
+            const cityConfig = INDUSTRIAL_CITIES[cityName];
+            if (!cityConfig) throw new Error(`La ville [${cityName}] n'appartient pas au catalogue de supervision.`);
+
+            const createdLocation = await this.prisma.clusterLocation.create({
+                data: {
+                    name: cityName,
+                    location: `${cityName} Tech Hub`,
+                    env_factor: cityConfig.envFactor,
+                    energy_cost_kwh: cityConfig.energyCost,
+                    cluster_count: totalClusters
+                }
+            });
+            locationMapping[cityName] = createdLocation.location_id;
+        }
+
+        // 2. Déploiement de la topologie sur-mesure
         for (const block of input.topology) {
             const cityConfig = INDUSTRIAL_CITIES[block.city];
             const blueprint = INTEGRATED_PROFILES[block.configProfile];
 
+            // Les vérifications de sécurité restent actives
             if (!cityConfig) throw new Error(`La ville [${block.city}] n'appartient pas au catalogue de supervision.`);
             if (!blueprint) throw new Error(`Le profil matériel [${block.configProfile}] n'existe pas.`);
 
             const baseInfrastructureFactor = 0.25;
             const weatherPenalty = cityConfig.defaultWeather > 15.0 ? (cityConfig.defaultWeather - 15.0) * 0.008 : 0.0;
-            const serverHeatingPenalty = 0.0; 
+            const theoreticalIdealPue = Number((1.0 + baseInfrastructureFactor + weatherPenalty).toFixed(3));
 
-            const theoreticalIdealPue = Number((1.0 + baseInfrastructureFactor + weatherPenalty + serverHeatingPenalty).toFixed(3));
+            const currentIdLocation = locationMapping[block.city];
 
-            // A. Initialisation de la plaque géographique
-            const location = await this.prisma.clusterLocation.upsert({
-                where: { name: block.city },
-                update: { cluster_count: { increment: block.clusterCount } },
-                create: {
-                    name: block.city,
-                    location: `${block.city} Tech Hub`,
-                    env_factor: cityConfig.envFactor,
-                    energy_cost_kwh: cityConfig.energyCost,
-                    cluster_count: block.clusterCount
-                }
-            });
-
-            // B. Instanciation des sous-clusters demandés
+            // Instanciation des sous-clusters demandés
             for (let c = 1; c <= block.clusterCount; c++) {
                 const currentClusterName = `${block.clusterName}-Zone-${c.toString().padStart(2, '0')}`;
 
@@ -144,8 +154,8 @@ export class ExerciseBuilderService {
                         hardware_per_worker: blueprint.hardwareWorker,
                         consomation_per_master: blueprint.baseConsumptionMaster,
                         consomation_per_worker: blueprint.baseConsumptionWorker,
-                        load_profile_id: defaultLoadProfileIds[12], // Lie l'id par défaut (ex: midi)
-                        location_id: location.location_id,
+                        load_profile_id: defaultLoadProfileIds[12], 
+                        location_id: currentIdLocation,
                         fan_count: blueprint.fanCount,
                         cpu_cooler_catalog_id: mappingCoolers[blueprint.cpuCoolerModelName] || coolerAirStd.cpu_cooler_catalog_id,
                         fan_catalog_id: mappingFans[blueprint.fanModelName] || fanCatalogStd.fan_catalog_id,
@@ -154,7 +164,7 @@ export class ExerciseBuilderService {
                 });
 
                 const cluster = await this.prisma.cluster.create({
-                    data: { name: currentClusterName, cluster_location_id: location.location_id }
+                    data: { name: currentClusterName, cluster_location_id: currentIdLocation }
                 });
 
                 let finalMastersCount = blueprint.masters;
@@ -183,7 +193,6 @@ export class ExerciseBuilderService {
                         }
                     });
 
-                    // Déploiement des ventilateurs physiques sur le serveur
                     for (let f = 1; f <= blueprint.fanCount; f++) {
                         await this.prisma.fan.create({
                             data: {
@@ -197,7 +206,6 @@ export class ExerciseBuilderService {
                         });
                     }
 
-                    // Attachement du kit complet des capteurs
                     const kitSensors = [
                         { type: "LOAD", unit: "%", value: 15.0 },
                         { type: "CPU_TEMP", unit: "°C", value: 32.0 },
@@ -222,10 +230,9 @@ export class ExerciseBuilderService {
             });
         }
 
-        console.log("✅ [BUILDER] Sandbox configurée et déployée avec succès.");
+        console.log("[OK] [BUILDER] Sandbox réinitialisée et topologie alignée.");
         return pueReports;
     }
-
     /**
      * Génère 7 jours d'historique sain (Télémétrie nominale)
      */

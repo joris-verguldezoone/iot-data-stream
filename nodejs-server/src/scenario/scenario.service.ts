@@ -1,21 +1,6 @@
 // src/scenario/scenario.service.ts
 import { PrismaClient } from "@prisma/client";
-import fs from "fs-extra";
-import path from "path";
-
-export interface ScenarioEvent {
-    tick: number;
-    type: 'CRASH_FAN' | 'LOAD_SPIKE_ALL' | 'THERMAL_DRIFT_SERVER';
-    targetId?: number;
-    value?: number;
-}
-
-export interface Scenario {
-    id: string;
-    name: string;
-    description: string;
-    events: ScenarioEvent[];
-}
+import { eventsDetails, Scenario } from '../data_seed/scenarios';
 
 export class ScenarioService {
     private activeScenario: Scenario | null = null;
@@ -25,6 +10,10 @@ export class ScenarioService {
     private pendingRepairs: Map<number, { serverId: number; remainingTicks: number }> = new Map();
 
     constructor(private prisma: PrismaClient, private io: any) {}
+
+    private getRandomOffset(min: number = -10, max: number = 10): number {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
 
     getCurrentScenario(): Scenario | null {
         return this.activeScenario;
@@ -39,32 +28,46 @@ export class ScenarioService {
     }
 
     async loadScenario(scenarioId: string): Promise<void> {
-        const filePath = path.join(__dirname, "../data_seed/scenarios.json");
-        const scenarios: Scenario[] = await fs.readJson(filePath);
-        
-        const found = scenarios.find(s => s.id === scenarioId);
-        if (!found) throw new Error(`Scénario [${scenarioId}] introuvable.`);
+        const found = eventsDetails.find(s => s.id === scenarioId);
+        if (!found) throw new Error(`Scenario [${scenarioId}] introuvable.`);
 
-        this.activeScenario = found;
+        const randomizedEvents = found.events.map(event => {
+            const offset = this.getRandomOffset(-10, 10);
+            const initialTick = event.tick;
+            const dynamicTick = Math.max(1, initialTick + offset);
+            
+            console.log(`[ENTROPIE] Evenement [${event.type}] (Prevu initialement au Tick ${initialTick}) replanifie dynamiquement au Tick ${dynamicTick} (Offset: ${offset > 0 ? '+' : ''}${offset})`);
+            
+            return {
+                ...event,
+                tick: dynamicTick
+            };
+        });
+
+        this.activeScenario = {
+            ...found,
+            events: randomizedEvents
+        };
+
         this.currentTick = 0;
         this.activeThermalDrifts.clear();
         this.pendingRepairs.clear(); 
         this.currentLoadMultiplier = 1.0;
         
-        console.log(`📖 Scénario armé : ${this.activeScenario.name}`);
+        console.log(`[READY] Scenario arme avec entropie variable : ${this.activeScenario.name}`);
         this.io.emit("scenario_started", { name: found.name, description: found.description });
     }
 
     async processTick(): Promise<void> {
         this.currentTick++;
-        console.log(`⏱️ [SCÉNARIO] Tick : ${this.currentTick}`);
+        console.log(`[TICK] Scenario Service - Pas : ${this.currentTick}`);
 
-        // GESTION DU DÉLAI DE MAINTENANCE
+        // Gestion du delai de maintenance (4 ticks de transit)
         for (const [fanId, repair] of this.pendingRepairs.entries()) {
             repair.remainingTicks--;
             
             if (repair.remainingTicks > 0) {
-                console.log(`🔧 [MAINTENANCE] Ventilateur ${fanId} en cours de remplacement...`);
+                console.log(`[MAINTENANCE] Ventilateur ${fanId} en cours de remplacement...`);
                 this.io.emit("maintenance_progress", { fanId, remainingTicks: repair.remainingTicks });
             } else {
                 try {
@@ -73,10 +76,10 @@ export class ScenarioService {
                         data: { status: 'ON', control_mode: 'AUTO', speed_percent: 20 }
                     });
                     this.clearDriftForServer(repair.serverId);
-                    console.log(`✅ [MAINTENANCE SUCCÈS] Remplacement du Ventilateur ${fanId} terminé.`);
+                    console.log(`[MAINTENANCE SUCCESS] Remplacement du Ventilateur ${fanId} termine.`);
                     this.io.emit("maintenance_complete", { fanId, serverId: repair.serverId });
                 } catch (e) {
-                    console.warn(`⚠️ [MAINTENANCE] Impossible de réparer le fan ${fanId} (ID obsolète pour cette topologie).`);
+                    console.warn(`[MAINTENANCE WARN] Impossible de reparer le fan ${fanId} (ID obsolete pour cette topologie).`);
                 } finally {
                     this.pendingRepairs.delete(fanId);
                 }
@@ -88,19 +91,18 @@ export class ScenarioService {
         const eventsToRun = this.activeScenario.events.filter(e => e.tick === this.currentTick);
 
         for (const event of eventsToRun) {
-            console.log(`⚠️ ÉVÈNEMENT SCÉNARIO ENCLENCHÉ : [${event.type}]`);
+            console.log(`[WARN] Evenement scenario enclenche : [${event.type}] au Tick ${this.currentTick}`);
             this.io.emit("scenario_event_triggered", event);
 
-            // 🌟 US 1/3 SÉCURITÉ : Protection globale contre les IDs absents de la topologie courante
             try {
                 switch (event.type) {
                     case 'CRASH_FAN':
                         if (event.targetId) {
                             await this.prisma.fan.update({
                                 where: { fan_id: event.targetId },
-                                data: { speed_percent: 0, control_mode: 'MANUAL', status: 'ON' }
+                                data: { speed_percent: 0, control_mode: 'MANUAL', status: 'CRASH_FAN' }
                             });
-                            console.log(`💥 [SCÉNARIO] Le ventilateur ${event.targetId} a été saboté.`);
+                            console.log(`[CRASH] Le ventilateur ${event.targetId} a ete sabote.`);
                         }
                         break;
 
@@ -116,20 +118,18 @@ export class ScenarioService {
 
                     case 'THERMAL_DRIFT_SERVER':
                         if (event.targetId && event.value !== undefined) {
-                            // On vérifie d'abord si le serveur existe dans notre topologie de test actuelle
                             const serverExists = await this.prisma.server.findUnique({ where: { server_id: event.targetId } });
                             if (serverExists) {
                                 this.activeThermalDrifts.set(event.targetId, event.value);
-                                console.log(`🔥 [SCÉNARIO] Dérive thermique (+${event.value}°C) appliquée au serveur ${event.targetId}`);
+                                console.log(`[HEAT] Derive thermique (+${event.value} degres C) appliquee au serveur ${event.targetId}`);
                             } else {
-                                console.warn(`⏭️ [SCÉNARIO] Serveur cible ${event.targetId} absent de la topologie active. Événement ignoré.`);
+                                console.warn(`[SKIP] Serveur cible ${event.targetId} absent de la topologie active. Evenement ignore.`);
                             }
                         }
                         break;
                 }
             } catch (prismaError) {
-                // L'erreur est interceptée ici : la simulation continue sa course !
-                console.warn(`⏭️ [SCÉNARIO] Échec de l'événement ${event.type} pour la cible ${event.targetId} (Composant absent de la topologie). La simulation continue.`);
+                console.warn(`[SKIP] Echec de l'evenement ${event.type} pour la cible ${event.targetId}. La simulation continue.`);
             }
         }
     }
@@ -148,7 +148,7 @@ export class ScenarioService {
 
     clearDriftForServer(serverId: number): void {
         this.activeThermalDrifts.delete(serverId);
-        console.log(`🧹 [SCÉNARIO] Pénalité environnementale/drift annulée pour le serveur ${serverId}`);
+        console.log(`[CLEAN] Penalite environnementale / drift annulee pour le serveur ${serverId}`);
     }
 
     clearScenario(): void {
@@ -157,6 +157,29 @@ export class ScenarioService {
         this.activeThermalDrifts.clear();
         this.pendingRepairs.clear();
         this.currentLoadMultiplier = 1.0;
-        console.log("♻️ Scénario nettoyé et dérives réinitialisées.");
+        console.log("[RESET] Scenario nettoye et derives reinitialisees.");
+    }
+
+    /**
+     * Calcule le coefficient d'efficacite energetique dynamique du cluster
+     */
+    calculateDynamicPUE(
+        baseEnvFactor: number,     
+        currentWeather: number,    
+        averageCpuLoad: number     
+    ): number {
+        
+        const PUE_infra = 1.12;
+
+        // Modélisation de l'impact de la météo extérieure (Free-Cooling efficace sous 15°C)
+        const deltaTemperature = Math.max(0, currentWeather - 15.0);
+        const PUE_meteo = (deltaTemperature * 0.008) * baseEnvFactor;
+
+        // Modélisation de l'impact de la charge applicative (Loi quadratique de dissipation thermique)
+        const PUE_charge = Math.pow(averageCpuLoad / 100, 2) * 0.15;
+
+        const finalPue = PUE_infra + PUE_meteo + PUE_charge;
+
+        return Number(finalPue.toFixed(3));
     }
 }
