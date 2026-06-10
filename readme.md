@@ -4,9 +4,9 @@ Il intègre tes consignes exactes : l'utilisation du générateur graphique pour
 
 ---
 
-# 🤖 Getting Started : Projet "Juste des Ventilateurs" – Supervision IA & Flux IoT Temps Réel
+# Getting Started : Projet "Juste des Ventilateurs" – Supervision IA & Flux IoT Temps Réel
 
-## 📖 1. Présentation de la Mission
+## 1. Présentation de la Mission
 
 > « *When things are getting hot and the sensors are going crazy, in a system controlling only fans, our AI gets turned on to cool things down and decrease pressure.* »
 
@@ -18,7 +18,7 @@ Pour expérimenter sans risque, vous allez concevoir un microservice autonome en
 
 ---
 
-## 🚀 2. Étape 1 : Lancement du Jumeau Numérique
+## 2. Étape 1 : Lancement du Jumeau Numérique
 
 Démarrez l'infrastructure complète du simulateur de datacenter (moteur physique, broker de messages, base de données et stack d'observabilité) à l'aide de Docker Compose :
 
@@ -27,15 +27,14 @@ docker compose up -d --build
 
 ```
 
-### 🌍 Points d'accès de votre environnement :
-
-* **API du Moteur Physique** : `http://localhost:3333` (Documentation Swagger : `/documentation`)
+### Points d'accès de votre environnement :
+* **API du Moteur Physique** : `http://localhost:3333` (Documentation Swagger : `/docs`)
 * **Broker MQTT (Mosquitto)** : `localhost:1883`
 * **Observabilité Graphique (Grafana)** : `http://localhost:3000`
 
 ---
 
-## 🏗️ 3. Étape 2 : Configuration Graphique de la Topologie
+## 3. Étape 2 : Configuration Graphique de la Topologie
 
 Avant d'initier la télémétrie, vous devez matérialiser les équipements industriels en utilisant le **Générateur de Topologie** disponible sur l'interface de l'application :
 
@@ -51,17 +50,17 @@ Avant d'initier la télémétrie, vous devez matérialiser les équipements indu
 
 ```
 
-* **📍 Ville** : `Marseille` (Impose le climat local et les coûts électriques locaux).
-* **🖥️ Profil** : `MEDIUM GPU` (Instancie des clusters de serveurs de calcul intensif IA équipés de ventilateurs physiques régulables).
-* Cliquez sur **🚀 Lancer le Build** : Cette action purge les anciennes tables et configure une infrastructure propre.
+* ** Ville** : `Marseille` (Impose le climat local et les coûts électriques locaux).
+* ** Profil** : `MEDIUM GPU` (Instancie des clusters de serveurs de calcul intensif IA équipés de ventilateurs physiques régulables).
+* Cliquez sur ** Lancer le Build** : Cette action purge les anciennes tables et configure une infrastructure propre.
 
 ---
 
-## 📥 4. Étape 3 : Spécifications de votre Consommateur (`ingest/`)
+## 4. Étape 3 : Spécifications de votre Consommateur (`ingest/`)
 
 Votre premier livrable consiste à **développer de zéro un script consommateur MQTT (Subscriber)** capable de lire la télémétrie en temps réel et de l'historiser pour l'apprentissage de vos modèles.
 
-### 🛰️ Structure des données IoT émises
+### Structure des données IoT émises
 
 Votre script doit se connecter au broker `localhost:1883` et s'abonner au topic : **`v1/gateway/telemetry/#`**.
 Chaque payload reçu est au format JSON et structuré de cette manière :
@@ -89,11 +88,11 @@ Extrayez ces métriques en continu, calculez des features temporelles (dérivée
 
 ---
 
-## ⚡ 5. Étape 4 : Développement du Contrôleur Intelligent
+## 5. Étape 4 : Développement du Contrôleur Intelligent
 
 Votre application `juste-ventilateurs` doit fermer la boucle de décision en temps réel en implémentant deux fonctionnalités majeures :
 
-### 🎛️ 1. Régulation Dynamique de la Vitesse (Régime Nominal)
+### 1. Régulation Dynamique de la Vitesse (Régime Nominal)
 
 Entraînez un modèle (ou concevez une politique à score) évaluant le meilleur compromis **Sûreté Thermique / Sobriété Énergétique**. Votre script doit appliquer les nouvelles consignes de vitesse sur le matériel en appelant l'API officielle :
 
@@ -103,7 +102,7 @@ Body: { "speed_percent": <vitesse_calculee> }
 
 ```
 
-### 🔧 2. Détection d'Anomalie et Maintenance (Régime de Crise)
+### 2. Détection d'Anomalie et Maintenance (Régime de Crise)
 
 Si un ventilateur subit une avarie physique, modifier sa vitesse (`speed_percent`) n'aura aucun effet. Votre agent doit détecter cette situation (Exemple : Température $>78^\circ\text{C}$ alors que la ventilation demandée est déjà au maximum). Il doit alors envoyer une équipe de techniciens virtuels via la route :
 
@@ -115,7 +114,7 @@ Body: { "fanId": <id_du_ventilateur_en_panne> }
 
 ---
 
-## 🔥 6. Scénario d'Évaluation : La Crise de Marseille
+## 6. Scénario d'Évaluation : La Crise de Marseille
 
 L'évaluation de votre code se fera en direct en déclenchant la route de stress officielle :
 
@@ -132,9 +131,8 @@ POST http://localhost:3333/sim/scenarios/marseille?cadence=1&persist=true
 
 ---
 
-## 📂 7. Structure de Dépôt Recommandée
+## 7. Structure de Dépôt Recommandée
 
-```text
 juste-ventilateurs/
 ├── ingest/                 # Votre consommateur MQTT et pipeline d'historisation
 ├── features/               # Pipeline de feature engineering (calcul des dérivées)
@@ -144,3 +142,60 @@ juste-ventilateurs/
 ├── data/                   # Datasets d'entraînement versionnés
 ├── docker-compose.yml      # Containerisation de votre microservice
 └── requirements.txt        # Dépendances Python (requests, paho-mqtt, scikit-learn...)
+
+
+Types d'Événements Renseignés
+CRASH_FAN : Arrêt mécanique immédiat d'un composant de refroidissement (la vitesse tombe à 0%).
+
+LOAD_SPIKE_ALL : Multiplicateur de charge globale appliqué instantanément sur l'ensemble de l'infrastructure informatique.
+
+THERMAL_DRIFT_SERVER : Pénalité environnementale ajoutant une hausse constante de température sur un nœud spécifique (perte d'efficacité de dissipation).
+
+Catalogue des Scénarios
+Le système expose 11 scénarios préconfigurés, classés par niveau de complexité :
+
+Anomalies Unitaires (Validation)
+op_fan_failure (Défaut Matériel : Panne Ventilateur) : Panne du ventilateur cible 1 au tick 15.
+
+op_traffic_surge (Surcharge Opérationnelle : Hausse de Trafic) : Doublement de la charge globale au tick 10.
+
+op_thermal_drift (Dégradation Physique : Dérive Thermique) : Hausse thermique de +1.5°C sur le serveur 2 au tick 5.
+
+Configurations par Type de Cluster
+sc_cluster_small (SMALL-EDGE : Coup de Chaleur sur Micro-Closet) : Panne de ventilation sur infrastructure Edge au tick 12. Sans action de bridage, le crash thermique est immédiat.
+
+sc_cluster_medium (MEDIUM-CLUSTER : Incident Électrique Alterné) : Dérive thermique de +2.0°C sur le nœud 3 au tick 8.
+
+sc_cluster_high (HIGH-POWER : Stress-Test IA & Supercalculateur) : Surcharge massive de calcul à 220% de la normale dès le tick 5.
+
+Scénarios Avancés et Multi-Villes
+sc_marseille_gpu_melt (MARSEILLE : Canicule Phocéenne & Surcharge GPU) : Simulation sur une semaine. Surcharge au tick 52, dérive caniculaire (+15°C) au tick 56, panne matérielle critique au tick 60.
+
+sc_euro_cross_topology (TOPOLOGIE : Le Grand Chelem Européen) : Événements hétérogènes synchronisés sur plusieurs zones géographiques (Surcharge globale, dérive thermique à Marseille et panne de ventilation à Oslo).
+
+Profils de Crise Majeure (Algorithmes IA et MLOps)
+sc_marseille_massive_chaos (PROD-CRISIS : Marseille Chaos) : 14 pannes et dérives majeures distribuées sur 168 ticks pour tester la maintenance prédictive sous flux de données instable.
+
+sc_cluster_10_infestation (SCALE-10 : Infestation Matérielle Multi-Zone) : Défaillance en cascade des systèmes de ventilation sur 10 clusters distincts, forçant l'ordonnanceur à paralléliser les actions correctives.
+
+sc_apocalypse_50 (APOCALYPSE-50 : Blackout Thermique Massif) : Épreuve de robustesse ultime impliquant 50 clusters simultanés. Injections simultanées de hausses environnementales extrêmes (+20°C) et pannes en rafale.
+
+Liste des Identifiants Disponibles
+Pour charger un scénario depuis les contrôleurs ou l'API, utilisez l'un des jetons de la liste d'enregistrement standard :
+
+```
+export const eventList = [
+  "sc_marseille_gpu_melt",
+  "op_fan_failure",
+  "op_traffic_surge",
+  "op_thermal_drift",
+  "sc_cluster_high",
+  "sc_cluster_medium",
+  "sc_cluster_small",
+  "sc_euro_cross_topology",
+  "sc_marseille_massive_chaos",
+  "sc_cluster_10_infestation",
+  "sc_apocalypse_50"
+];
+
+```

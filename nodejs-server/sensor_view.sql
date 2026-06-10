@@ -1,5 +1,5 @@
 -- Créer une vue qui calcule les stats par heure automatiquement
-CREATE MATERIALIZED VIEW sensor_stats_hourly
+ sensor_stats_hourly
 WITH (timescaledb.continuous) AS
 SELECT 
     sensor_id,
