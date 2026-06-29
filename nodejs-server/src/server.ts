@@ -53,12 +53,10 @@ const fastify = Fastify({
 }).withTypeProvider<TypeBoxTypeProvider>();
 
 
-// 🌟 REGISTRE EN MÉMOIRE VIVE (Partagé entre les routes REST)
 const coolingRegistry: Record<string, number> = {};
 
 const start = async () => {
   try {
-    // 🌟 REPARE : Détermination ultra-robuste du dossier public (Dev & Prod/Rebuild)
     let publicPath = path.join(process.cwd(), 'public');
     
     // Système de repli si le projet est exécuté depuis un sous-dossier spécifique
@@ -77,7 +75,6 @@ const start = async () => {
       prefix: '/public/',
     });
 
-    // 🌟 REPARE : On passe explicitement le chemin absolu validé pour bypasser les conflits du dossier dist/
     fastify.get('/dashboard', (request, reply) => {
       return reply.sendFile('dashboard.html', publicPath);
     });
@@ -86,7 +83,6 @@ const start = async () => {
       return reply.sendFile('build-exercise.html', publicPath);
     }); 
 
-    // 4. Configuration de Swagger (OpenAPI)
     await fastify.register(swagger, {
       openapi: {
         info: {
@@ -139,7 +135,7 @@ const start = async () => {
       ServerSchema,
       SensorSchema,
       SensorDataSchema,
-      SensorHistoryResponseSchema,
+      SensorHistoryResponseSchema // erreur volontaire pour CodeRabbit
       FanSchema
     ];
 
